@@ -1,0 +1,25 @@
+{
+  "name": "seo_api",
+  "version": "0.0.1",
+  "description": "api for seo projects",
+  "main": "app.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/polluxx/seo_api.git"
+  },
+  "author": "kosakivsky",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/polluxx/seo_api/issues"
+  },
+  "homepage": "https://github.com/polluxx/seo_api",
+  "dependencies": {
+    "antigate": "0.0.1",
+    "asynquence": "^0.6.0-b",
+    "parse5": "^1.5.0",
+    "seneca": "^0.6.2"
+  }
+}
