@@ -3,7 +3,7 @@ var http = require('http'),
     Prodvigator = {
     params: {
         host: "prodvigator.ua",
-        path: "/api/v2/url_keywords?page=1&page_size=1",
+        path: "/api/v2/url_keywords?page=1&page_size=10",
         token: "990f3b5aadb8bcfe54f7dd013001ce81"
     },
     projects: {
@@ -31,7 +31,7 @@ var http = require('http'),
 
             resp.setEncoding('utf8');
             resp.on('data', function (chunk) {
-                done({"error": error, "data": chunk});
+                done({"error": error, "data": JSON.parse(chunk)});
             });
         });
 
@@ -60,52 +60,26 @@ var http = require('http'),
     },
     runGenerator: function *(link, projectId){
         try {
-            var result1 = yield this.list(link, projectId);
+            var result = yield this.list(link, projectId);
         }
         catch (err) {
-            console.log( "Error: " + err );
-            return;
+            return err;
         }
-        return result1;
+        return result;
     },
 
-    check: function (link, projectId) {
+    check: function *(link, projectId) {
+        var item, res;
         if(!link || !projectId) {
             // toDo LOG
-            return {error: "no link or project provided"};
-
+            res = yield {error: "no link or project provided"};
+            return res;
         }
-        var res = this.runGenerator(link, projectId);
-        var item, self = this;
+        res = yield this.runGenerator(link, projectId);
 
-    function iterate(val){
-            var ret = res.next( val );
-
-            if (!ret.done) {
-                // poor man's "is it a promise?" test
-                if ("then" in ret.value) {
-                    // wait on the promise
-                    ret.value.then( iterate );
-                }
-                // immediate value: just send right back in
-                else {
-                    // avoid synchronous recursion
-                    setTimeout( function(){
-                        iterate( ret.value );
-                    }, 0 );
-                }
-            } else {
-                self.itemsList = ret.value;
-                console.log(ret.value);
-                return ret.value;
-            }
-        };
-        console.log(iterate());
-        return iterate();
-        //return self.itemsList;
-
+        return res;
     },
-    seek: function*(link) {
+    seek: function *(link) {
         if(!link) {
             // toDo LOG
             yield {error: "no link provided"};
@@ -115,7 +89,7 @@ var http = require('http'),
         yield null;
     },
     generic: null,
-    itemsList: []
+    itemsList: {}
 };
 
 module.exports = Prodvigator;

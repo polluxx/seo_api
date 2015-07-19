@@ -19,6 +19,7 @@
   "dependencies": {
     "antigate": "0.0.1",
     "asynquence": "^0.6.0-b",
+    "co": "^4.6.0",
     "parse5": "^1.5.0",
     "seneca": "^0.6.2"
   }
