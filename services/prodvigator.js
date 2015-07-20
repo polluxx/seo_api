@@ -1,5 +1,5 @@
 var http = require('http'),
-    ASQ = require('asynquence'),
+    //ASQ = require('asynquence'),
     Prodvigator = {
     params: {
         host: "prodvigator.ua",
@@ -12,16 +12,16 @@ var http = require('http'),
         3: "dom.ria.com",
         5: "market.ria.com"
     },
-    getItem: function(reqParams, done) {
-
+    getItem: function(reqParams) {
+        var self = this;
         return new Promise( function(done,reject) {
-            var self = this;
+
             if (!reqParams) done({"error": 'Error with empty params'});
             if (typeof reqParams !== "object") done({"error": 'TypeError: params must be an object!'});
             var options = {
-                    host: this.params.host,
+                    host: self.params.host,
                     port: 80,
-                    path: this.params.path + "&token=" + this.params.token + "&query=http://" + this.projects[reqParams.projectId] + "/" + reqParams.link,
+                    path: self.params.path + "&token=" + self.params.token + "&query=http://" + self.projects[reqParams.projectId] + "/" + reqParams.link,
                     method: 'GET'
                 },
                 error = null,
@@ -44,15 +44,14 @@ var http = require('http'),
 
             console.log("request done!");
             request.end();
-        }).then( function(result){
-            return result;
-        } );
+        });
         //self.generic.next();
     },
     list: function (link, projectId, saveToDb) {
-        var resp, self = this, linksArray = [], functs, funct;
+        var resp, self = this, linksArray = [], functs = [], funct, linkItem;
 
         return new Promise( function(resolve, reject) {
+
             if(typeof link === "string") {
                 // toDo LOG
                 if(link.length < 5) {
@@ -71,12 +70,26 @@ var http = require('http'),
                 linksArray = link;
             }
 
-
             for(linkItem of linksArray) {
-                funct = self.getItem({projectId: projectId, link: linkItem}, resolve);
+                funct = self.getItem({projectId: projectId, link: linkItem});
                 functs.push(funct);
             }
-            console.log(functs);
+
+            Promise.all(functs)
+            .then(
+              function(items) {
+                //console.log(items);
+                resolve(items);
+              }
+            ).catch(
+              function( exeption ) {
+                  console.warn( exeption );
+                  reject({error: JSON.stringify(exeption)});
+                  // 'third'
+              }
+            );
+
+            //console.log(functs);
 
         });
 
