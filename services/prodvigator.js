@@ -13,48 +13,71 @@ var http = require('http'),
         5: "market.ria.com"
     },
     getItem: function(reqParams, done) {
-        var self = this;
-        if(!reqParams) done({"error": 'Error with empty params'});
-        if(typeof reqParams !== "object") done({"error": 'TypeError: params must be an object!'});
-        var options = {
-            host: this.params.host,
-            port: 80,
-            path: this.params.path + "&token=" + this.params.token + "&query=http://" + this.projects[reqParams.projectId] + "/" + reqParams.link,
-            method: 'GET'
-        },
-        error = null,
-        request = http.request(options, function(resp) {
-            console.log('STATUS: ' + resp.statusCode);
-            if(resp.statusCode !== 200) {
-                done({"error": "Error in request!", data: resp});
-            }
 
-            resp.setEncoding('utf8');
-            resp.on('data', function (chunk) {
-                done({"error": error, "data": JSON.parse(chunk)});
+        return new Promise( function(done,reject) {
+            var self = this;
+            if (!reqParams) done({"error": 'Error with empty params'});
+            if (typeof reqParams !== "object") done({"error": 'TypeError: params must be an object!'});
+            var options = {
+                    host: this.params.host,
+                    port: 80,
+                    path: this.params.path + "&token=" + this.params.token + "&query=http://" + this.projects[reqParams.projectId] + "/" + reqParams.link,
+                    method: 'GET'
+                },
+                error = null,
+                request = http.request(options, function (resp) {
+                    console.log('STATUS: ' + resp.statusCode);
+                    if (resp.statusCode !== 200) {
+                        done({"error": "Error in request!", data: resp});
+                    }
+
+                    resp.setEncoding('utf8');
+                    resp.on('data', function (chunk) {
+                        done({"error": error, "data": JSON.parse(chunk)});
+                    });
+                });
+
+            request.on('error', function (e) {
+                //console.log('problem with request: ' + e.message);
+                done({"error": e.message, "raw": e});
             });
-        });
 
-        request.on('error', function(e) {
-            //console.log('problem with request: ' + e.message);
-            done({"error": e.message, "raw": e});
-        });
-
-        console.log("request done!");
-        request.end();
+            console.log("request done!");
+            request.end();
+        }).then( function(result){
+            return result;
+        } );
         //self.generic.next();
     },
     list: function (link, projectId, saveToDb) {
-        var resp, self = this;
-        if(!link) {
-            // toDo LOG
-            resp = {error: "no link provided"};
-            //this.itemsList.push(resp);
-            return resp;
-        }
+        var resp, self = this, linksArray = [], functs, funct;
 
         return new Promise( function(resolve, reject) {
-            self.getItem({projectId: projectId, link: link}, resolve);
+            if(typeof link === "string") {
+                // toDo LOG
+                if(link.length < 5) {
+                    resp = {error: "no link provided or link has less 5 symbols"};
+                    reject(resp);
+                }
+
+                linksArray.push(link);
+            }
+
+            if(typeof link === "object") {
+                if(!link instanceof Array) {
+                    resp = {error: "TypeError: link isn't an array!"};
+                    reject(resp);
+                }
+                linksArray = link;
+            }
+
+
+            for(linkItem of linksArray) {
+                funct = self.getItem({projectId: projectId, link: linkItem}, resolve);
+                functs.push(funct);
+            }
+            console.log(functs);
+
         });
 
     },

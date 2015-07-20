@@ -12,7 +12,7 @@ var Parser = require('parse5').Parser,
 require('seneca')()
     .add( { aggregate:'top'}, function(args, done) {
         //
-        if(!args.link || !args.project) done(null,null);
+        if(!args.link || !args.project) done(true, {error: 'no project or link provided'});
         var resp, result;
 
           resp = Prodvigator.check(args.link, args.project);
