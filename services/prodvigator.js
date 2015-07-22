@@ -17,7 +17,7 @@ var http = require('http'),
     },
     tmpParams: null,
     projects: {
-        1: "https://auto.ria.com",
+        1: "http://auto.ria.com",
         2: "http://www.ria.com",
         3: "http://dom.ria.com",
         5: "https://market.ria.com"
@@ -47,7 +47,7 @@ var http = require('http'),
         }
 
         rest = restParams.join("&");
-        console.log(rest);
+
         response.body = reqParams.method + "?" + rest + "&token=" + this.params.token + "&query=" + reqParams.queryBody;
 
         if(reqParams.fields !== undefined && reqParams.fields instanceof Array) this.params.fields = reqParams.fields;
@@ -74,7 +74,7 @@ var http = require('http'),
             console.info("START request - "+ target);
 
                 if(query.error !== null) done({"error": "Error in request! " + query.error});
-                
+
                 var options = {
                     host: self.params.host,
                     port: 80,
@@ -122,117 +122,37 @@ var http = require('http'),
     sequence: function *(reqParams) {
         var self = this, generic, promised, asq, funct, paging, promis, gener,
             responseFun, functs = [], page = 1, failedReq = 0, target = reqParams.queryBody,
-            response = {};
+            response = {}, pagingFunc;
         yield new Promise( function (done,reject) {
 
-            /*for(var i=0; i < 10; i ++) {
-                promised = null;
-                funct = function(page, done) {
-                    return function (done) {
-
-
-
-                    }
-                };
-
-                responseFun = funct(page, function(done){
-                    return done;
-                });
-                functs.push(responseFun);
-
-
-            }*/
-
-
-
-            paging = function *(page) {
-
-                if(page > 3 || response.done) {
-                    return yield response;
-                }
-
-
-                reqParams.page = page;
-                reqParams.queryBody = target;
-
-                console.log(page);
-
-                for(generic of self.getItem(reqParams)) {
-                    promised = generic;
-                }
-
-                promised.then(function(resp) {
-                    console.log(resp);
-                });
-
-
-                if(promised.data === null) response.done = true;
-
-                ++page;
-                if(promised.data !== null) yield paging(page);
-
-                response.error = response.error || null;
-                if(promised.data !== null) response.items = (response.items !== undefined) ? response.items.concat(promised.data) : promised.data;
-                response.left = promised.left || null;
-                yield response;
-
-                /*promised.then(
-                    function (resp) {
-
-
-                        console.log(resp);
-
-                        if(resp.data === null) response.done = true;
-
-                        ++page;
-                        if(resp.data !== null) yield paging(page);
-
-                        response.error = response.error || null;
-                        if(resp.data !== null) response.items = (response.items !== undefined) ? response.items.concat(resp.data) : resp.data;
-                        response.left = resp.left || null;
-                        yield response;
-                    }
-                ).catch(function (err) {
-                        //console.log(err);
-                        response.error = JSON.stringify(err);
-                        ++page;
-                        ++failedReq;
-
-                        if(failedReq >= 3) response.done = true;
-                        yield response;
-                    });*/
+            reqParams.page = page;
+            //var stepReq = ;
+            //stepReq.next();
+            //response.error = response.error || null;
+            //if(promised.data !== null) response.items = (response.items !== undefined) ? response.items.concat(promised.data) : promised.data;
+            //response.left = promised.left || null;
+            for(generic of self.step(reqParams)) {
+              promised = generic;
             }
 
 
-            for(generic of paging(page)) {
-                promised = generic;
-            }
-
-            promised.then(
-                function(resp){
-                    done(resp)
-                }
-            ).catch(function(err) {
-                console.log(err);
-                done({error: JSON.stringify(err)})
-            });
-            /*asq = ASQ().gate.apply(null, functs);
-            asq.then(
-                function() {
-                    //var args = Array.prototype.slice.call(arguments);
-
-                    //console.log(response);
-                    done(response);
-                }
-            ).or(function(err){
-                reject(err);
-                console.log(err); // ReferenceError
-            });*/
-
-
+            console.log(promised);
+            done();
 
         });
 
+    },
+    step: function *(reqParams) {
+      var stepReq, promised, errResp;
+      for(promised of this.getItem(reqParams)) {
+        stepReq = promised;
+      }
+      stepReq.then(function *(response) {
+          yield response;
+      }).catch(function *(err) {
+           errResp = {data: null, error: JSON.stringify(err)};
+           yield errResp;
+      })
     },
     list: function (reqParams) {
         var resp, self = this, linksArray = [], functs = [], funct, linkItem, responseFun;
