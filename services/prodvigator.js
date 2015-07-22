@@ -10,20 +10,20 @@ var http = require('http'),
         },
         rest: {
           page: 1,
-          page_size: 100
+          page_size: 1
         },
         token: "990f3b5aadb8bcfe54f7dd013001ce81",
         fields: []
     },
     tmpParams: null,
     projects: {
-        1: "auto.ria.com",
-        2: "www.ria.com",
-        3: "dom.ria.com",
-        5: "market.ria.com"
+        1: "https://auto.ria.com",
+        2: "http://www.ria.com",
+        3: "http://dom.ria.com",
+        5: "https://market.ria.com"
     },
     buildQuery: function (reqParams) {
-        var response = {}, index, restParams = [];
+        var response = {}, index, restParams = [], restItems = this.params.rest;
         response.error = null;
         if (!reqParams || !reqParams.method) {
           response.error = {"error": 'Error with empty params'}
@@ -37,16 +37,17 @@ var http = require('http'),
 
         this.tmpParams = reqParams;
 
-        if(reqParams.limit !== undefined) this.params.rest.page_size = reqParams.limit;
-        if(reqParams.page !== undefined) this.params.rest.page = reqParams.page;
+
+        if(reqParams.limit !== undefined) restItems.page_size = reqParams.limit;
+        if(reqParams.page !== undefined) restItems.page = reqParams.page;
 
 
-        for(index in this.params.rest) {
+        for(index in restItems) {
           restParams.push(index+"="+this.params.rest[index]);
         }
 
         rest = restParams.join("&");
-
+        console.log(rest);
         response.body = reqParams.method + "?" + rest + "&token=" + this.params.token + "&query=" + reqParams.queryBody;
 
         if(reqParams.fields !== undefined && reqParams.fields instanceof Array) this.params.fields = reqParams.fields;
@@ -64,16 +65,16 @@ var http = require('http'),
         return resp;
     },
     getItem: function *(reqParams) {
-        var self = this;
-
-        var query = this.buildQuery(reqParams);
+        var self = this,
+            query = this.buildQuery(reqParams),
+            target = reqParams.queryBody;
 
         yield new Promise( function (done,reject) {
 
-            console.info("START request - "+ reqParams.queryBody);
+            console.info("START request - "+ target);
 
                 if(query.error !== null) done({"error": "Error in request! " + query.error});
-console.log(query.body);
+                
                 var options = {
                     host: self.params.host,
                     port: 80,
@@ -85,20 +86,20 @@ console.log(query.body);
                 request = http.request(options, function (resp) {
                     console.log('STATUS: ' + resp.statusCode);
                     if (resp.statusCode !== 200) {
-                        done({"error": "Error in request!", data: resp});
+                        done({"error": "Error in request!", raw: resp, data: null});
                     }
 
                     resp.setEncoding('utf8');
                     resp.on('data', function (chunk) {
                         raw += chunk;
-                        console.info("CHUNK request - "+ reqParams.queryBody);
+                        console.info("CHUNK request - "+ target);
                     });
 
                     resp.on("end", function(resp) {
-                        console.info("END request - "+ reqParams.queryBody);
+                        console.info("END request - "+ target);
 
                         var result = JSON.parse(raw);
-                          console.log(result);
+                          //console.log(result);
                         if(result.status_code !== 200) done({"error": "Code: "+ result.status_code + "; Body: " + result.status_msg, "data": null});
 
                         done({
@@ -110,13 +111,128 @@ console.log(query.body);
 
             request.on('error', function (e) {
                 //console.log('problem with request: ' + e.message);
-                done({"error": e.message, "raw": e});
+                done({"error": e.message, "raw": e, data: null});
             });
 
             console.log("request done!");
             request.end();
         });
         //self.generic.next();
+    },
+    sequence: function *(reqParams) {
+        var self = this, generic, promised, asq, funct, paging, promis, gener,
+            responseFun, functs = [], page = 1, failedReq = 0, target = reqParams.queryBody,
+            response = {};
+        yield new Promise( function (done,reject) {
+
+            /*for(var i=0; i < 10; i ++) {
+                promised = null;
+                funct = function(page, done) {
+                    return function (done) {
+
+
+
+                    }
+                };
+
+                responseFun = funct(page, function(done){
+                    return done;
+                });
+                functs.push(responseFun);
+
+
+            }*/
+
+
+
+            paging = function *(page) {
+
+                if(page > 3 || response.done) {
+                    return yield response;
+                }
+
+
+                reqParams.page = page;
+                reqParams.queryBody = target;
+
+                console.log(page);
+
+                for(generic of self.getItem(reqParams)) {
+                    promised = generic;
+                }
+
+                promised.then(function(resp) {
+                    console.log(resp);
+                });
+
+
+                if(promised.data === null) response.done = true;
+
+                ++page;
+                if(promised.data !== null) yield paging(page);
+
+                response.error = response.error || null;
+                if(promised.data !== null) response.items = (response.items !== undefined) ? response.items.concat(promised.data) : promised.data;
+                response.left = promised.left || null;
+                yield response;
+
+                /*promised.then(
+                    function (resp) {
+
+
+                        console.log(resp);
+
+                        if(resp.data === null) response.done = true;
+
+                        ++page;
+                        if(resp.data !== null) yield paging(page);
+
+                        response.error = response.error || null;
+                        if(resp.data !== null) response.items = (response.items !== undefined) ? response.items.concat(resp.data) : resp.data;
+                        response.left = resp.left || null;
+                        yield response;
+                    }
+                ).catch(function (err) {
+                        //console.log(err);
+                        response.error = JSON.stringify(err);
+                        ++page;
+                        ++failedReq;
+
+                        if(failedReq >= 3) response.done = true;
+                        yield response;
+                    });*/
+            }
+
+
+            for(generic of paging(page)) {
+                promised = generic;
+            }
+
+            promised.then(
+                function(resp){
+                    done(resp)
+                }
+            ).catch(function(err) {
+                console.log(err);
+                done({error: JSON.stringify(err)})
+            });
+            /*asq = ASQ().gate.apply(null, functs);
+            asq.then(
+                function() {
+                    //var args = Array.prototype.slice.call(arguments);
+
+                    //console.log(response);
+                    done(response);
+                }
+            ).or(function(err){
+                reject(err);
+                console.log(err); // ReferenceError
+            });*/
+
+
+
+        });
+
     },
     list: function (reqParams) {
         var resp, self = this, linksArray = [], functs = [], funct, linkItem, responseFun;
@@ -142,35 +258,28 @@ console.log(query.body);
             }
 
             reqParams.method = self.params.methods.keywordsByUrl;
-            reqParams.queryBody = "http://" + self.projects[reqParams.project] + "/";
+            reqParams.prefix = self.projects[reqParams.project] + "/";
+            self.params.rest.position_to = 100;
+
+
+
             self.makeResponse(resolve, reject, linksArray, reqParams);
 
-            /*Promise.all(functs)
-            .then(
-              function(items) {
-                //console.log(items);
-                resolve(items);
-              }
-            ).catch(
-              function( exeption ) {
-                  console.warn( exeption );
-                  reject({error: JSON.stringify(exeption)});
-                  // 'third'
-              }
-            );*/
-
-            //console.log(functs);
 
         });
 
     },
     makeResponse: function(resolve, reject, dataArray, reqParams, encode) {
-        var self = this, functs = [], generic, promised, funct = function(item, done){
+        var self = this, functs = [], prefix="", suffix="", generic, promised, funct = function(item, done){
             return function(done, elm) {
 
               if(encode) item = encodeURI(item);
-              reqParams.queryBody += item;
-              for(generic of self.getItem(reqParams)) {
+
+                if(reqParams.prefix !== undefined) prefix = reqParams.prefix;
+                if(reqParams.suffix !== undefined) suffix = reqParams.suffix;
+
+              reqParams.queryBody = prefix + item.replace(/^\/|\/$/, "") + suffix;
+              for(generic of self.sequence(reqParams)) {
                 promised = generic;
               }
 
@@ -200,7 +309,7 @@ console.log(query.body);
           }
         ).or(function(err){
             reject(err);
-            console.log(err); // ReferenceError: foo is not defined
+            console.log(err); // ReferenceError
         });
     },
     concurrents: function(reqParams) {
