@@ -5,7 +5,7 @@ var http = require('http'),
         host: "prodvigator.ua",
         methods: {
           keywordsByUrl: "/api/v2/url_keywords",
-          concurents: "/api/v2/competitors",
+          concurents: "/api/v2/keyword_top",
           related: "/api/v2/related_keywords"
         },
         rest: {
@@ -15,6 +15,7 @@ var http = require('http'),
         token: "990f3b5aadb8bcfe54f7dd013001ce81",
         fields: []
     },
+    sequenceLimit: 2,
     tmpParams: null,
     projects: {
         1: "http://auto.ria.com",
@@ -37,7 +38,7 @@ var http = require('http'),
 
         this.tmpParams = reqParams;
 
-
+        if(reqParams.minus !== undefined) restItems.minus_keywords = reqParams.minus;
         if(reqParams.limit !== undefined) restItems.page_size = reqParams.limit;
         if(reqParams.page !== undefined) restItems.page = reqParams.page;
 
@@ -64,16 +65,16 @@ var http = require('http'),
         }
         return resp;
     },
-    getItem: function *(reqParams) {
+    getItem: function (reqParams, done) {
         var self = this,
             query = this.buildQuery(reqParams),
             target = reqParams.queryBody;
 
-        yield new Promise( function (done,reject) {
+        //yield new Promise( function (done,reject) {
 
             console.info("START request - "+ target);
 
-                if(query.error !== null) done({"error": "Error in request! " + query.error});
+                if(query.error !== null) done({"error": "Error in request! " + query.error, data: null});
 
                 var options = {
                     host: self.params.host,
@@ -83,6 +84,7 @@ var http = require('http'),
                 },
                 error = null,
                 raw = "",
+                responseObjectKeys, objectKey, responseArray = [],
                 request = http.request(options, function (resp) {
                     console.log('STATUS: ' + resp.statusCode);
                     if (resp.statusCode !== 200) {
@@ -102,6 +104,8 @@ var http = require('http'),
                           //console.log(result);
                         if(result.status_code !== 200) done({"error": "Code: "+ result.status_code + "; Body: " + result.status_msg, "data": null});
 
+                        result.result = self.filtration(result.result, reqParams);
+
                         done({
                           "error": error,
                           "data": result.result instanceof Array ? result.result.map(self.parseResult, self) : result.result,
@@ -116,43 +120,101 @@ var http = require('http'),
 
             console.log("request done!");
             request.end();
-        });
+        //});
         //self.generic.next();
     },
-    sequence: function *(reqParams) {
-        var self = this, generic, promised, asq, funct, paging, promis, gener,
-            responseFun, functs = [], page = 1, failedReq = 0, target = reqParams.queryBody,
-            response = {}, pagingFunc;
-        yield new Promise( function (done,reject) {
+    filtration: function(data, reqParams) {
+
+        if(data instanceof Object && data.top === undefined) {
+            var responseObjectKeys = Object.keys(data), responseArray = [], objectKey;
+
+            for(objectKey of responseObjectKeys) {
+                responseArray.push(data[objectKey]);
+            }
+            if(responseArray.length) data = responseArray;
+        }
+        if(data.top !== undefined) data = data.top;
+
+
+        if(reqParams.minus !== undefined && false) {
+            var indexMinus = data.findIndex(
+                function(element, index) {
+                    if(element.domain === reqParams.minus) return true;
+                }
+            );
+            if(~indexMinus) data.splice(indexMinus, 1);
+        }
+
+        if(reqParams.limit !== undefined && reqParams.limit < data.length) {
+            data = data.slice(0, reqParams.limit);
+        }
+
+        return data;
+    },
+    sequence: function (reqParams) {
+        var self = this, done = null, promised,
+            page = 1, failedReq = 0, target = reqParams.queryBody,
+            response = {}, seqLimit = this.sequenceLimit-1;
+        //yield new Promise( function (done,reject) {
 
             reqParams.page = page;
             //var stepReq = ;
             //stepReq.next();
-            //response.error = response.error || null;
-            //if(promised.data !== null) response.items = (response.items !== undefined) ? response.items.concat(promised.data) : promised.data;
-            //response.left = promised.left || null;
-            for(generic of self.step(reqParams)) {
-              promised = generic;
+            return ASQ( function(done){
+                    reqParams.queryBody = target;
+                    self.getItem( reqParams, done );
+                })
+                .val(makeResponse)
+                .seq( function(token){
+                    if(token.data === null || done !== null || (page > seqLimit)) return ASQ(token).val(makeResponse);
+                    return flow(token);
+                })
+                .val(makeResponse);
+
+            function makeResponse(promised) {
+                response.error = promised.error || response.error || null;
+                if(promised.data && promised.data instanceof Array) response.items = (response.items !== undefined) ? response.items.concat(promised.data) : promised.data;
+                response.left = promised.left || response.left || null;
+                return response;
             }
 
+            function flow(token) {
+                return ASQ(token)
+                    .seq( function(token){
+                        if(token.data === null || done !== null || (page >= seqLimit)) return ASQ(token).val(makeResponse);
 
-            console.log(promised);
-            done();
+                        page++;
+                        reqParams.queryBody = target;
+                        reqParams.page = page;
 
-        });
+                        promised = ASQ().all(
+                            self.request(reqParams)
+                        );
 
+                        return promised;
+                    })
+                    .val(makeResponse)
+                    .seq(function(token) {
+                        if((page < seqLimit) && done === null) return flow(token);
+
+                        page++;
+                        reqParams.queryBody = target;
+                        reqParams.page = page;
+                        promised = ASQ().all(
+                            self.request(reqParams)
+                        );
+                        return promised;
+                    })
+                    .val(makeResponse);
+            }
+
+            //yield self.request(reqParams);
     },
-    step: function *(reqParams) {
-      var stepReq, promised, errResp;
-      for(promised of this.getItem(reqParams)) {
-        stepReq = promised;
-      }
-      stepReq.then(function *(response) {
-          yield response;
-      }).catch(function *(err) {
-           errResp = {data: null, error: JSON.stringify(err)};
-           yield errResp;
-      })
+    request: function(reqParams) {
+        var self = this;
+        return ASQ( function(done){
+            self.getItem( reqParams, done );
+        });
     },
     list: function (reqParams) {
         var resp, self = this, linksArray = [], functs = [], funct, linkItem, responseFun;
@@ -181,56 +243,57 @@ var http = require('http'),
             reqParams.prefix = self.projects[reqParams.project] + "/";
             self.params.rest.position_to = 100;
 
-
-
-            self.makeResponse(resolve, reject, linksArray, reqParams);
+            self.makeResponse(resolve, reject, linksArray, reqParams, false, true);
 
 
         });
 
     },
-    makeResponse: function(resolve, reject, dataArray, reqParams, encode) {
+    makeResponse: function(resolve, reject, dataArray, reqParams, encode, isSeq) {
         var self = this, functs = [], prefix="", suffix="", generic, promised, funct = function(item, done){
-            return function(done, elm) {
+            //return function(done, elm) {
 
               if(encode) item = encodeURI(item);
 
                 if(reqParams.prefix !== undefined) prefix = reqParams.prefix;
                 if(reqParams.suffix !== undefined) suffix = reqParams.suffix;
 
-              reqParams.queryBody = prefix + item.replace(/^\/|\/$/, "") + suffix;
-              for(generic of self.sequence(reqParams)) {
-                promised = generic;
-              }
+                reqParams.queryBody = prefix + item.replace(/^\/|\/$/, "") + suffix;
 
-               promised.then(
-                function(resp){
-                  done(resp)
+
+                if(isSeq) {
+                    promised = self.sequence(reqParams);
+                } else {
+                    promised = self.request(reqParams);
                 }
-              ).catch(function(err) {
-                console.log(err);
-                  done({error: JSON.stringify(err)})
-              });
-            }
+
+                return new Promise(function(resolve, reject) {
+                    promised
+                    .val( function(result, msg){
+                        //console.log( result ); // success, all done!
+                        resolve(result);
+                    })
+                    .or( function(err) {
+                        console.log( "Error: " + JSON.stringify(err) );
+                        reject("Error: " + JSON.stringify(err));
+                    } );
+                });
+            //}
         }
 
         for(linkItem of dataArray) {
             responseFun = funct(linkItem, function(done){
-              return done;
+                return done;
             });
+
             functs.push(responseFun);
         }
 
-        var asq = ASQ().gate.apply(null, functs);
-        asq.then(
-          function() {
-            var args = Array.prototype.slice.call(arguments);
-            resolve(args);
-          }
-        ).or(function(err){
-            reject(err);
-            console.log(err); // ReferenceError
-        });
+
+        Promise.all(functs)
+            .then(function(response) {
+                resolve(response);
+            });
     },
     concurrents: function(reqParams) {
       var self = this;
@@ -238,6 +301,9 @@ var http = require('http'),
 
           reqParams.method = self.params.methods.concurents;
           reqParams.queryBody = "";
+          reqParams.minus = "ria.com";
+          //reqParams.limit = 10;
+          self.params.rest.position_to = 11;
           self.makeResponse(resolve, reject, reqParams.keywords, reqParams, true);
 
         });
