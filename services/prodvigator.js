@@ -1,5 +1,6 @@
 var http = require('http'),
     ASQ = require('asynquence');
+    config = require('../config'),
     Prodvigator = {
     params: {
         host: "prodvigator.ua",
@@ -10,9 +11,9 @@ var http = require('http'),
         },
         rest: {
           page: 1,
-          page_size: 10
+          page_size: 1000
         },
-        token: "",
+        token: config.services.prodvigator.token,
         fields: []
     },
     sequenceLimit: 3,
@@ -302,7 +303,7 @@ var http = require('http'),
           reqParams.method = self.params.methods.concurents;
           reqParams.queryBody = "";
           reqParams.minus = "ria.com";
-          reqParams.limit = 10;
+          //reqParams.limit = 10;
           self.params.rest.position_to = 11;
           self.makeResponse(resolve, reject, reqParams.keywords, reqParams, true);
 

@@ -1,16 +1,24 @@
 // INIT packages
 'use strict';
 
-var Parser = require('parse5').Parser,
-    Prodvigator = require('./services/prodvigator'),
+var Prodvigator = require('./services/prodvigator'),
     Cassandra = require('./models/cassandra'),
+    Parser = require('./services/parser'),
     co = require('co');
 
 //logic
-//var parser = new Parser(), doc = parser.parse('<!DOCTYPE html><html><head></head><body>Hi there!</body></html>');
 
 
-require('seneca')()
+    require('seneca')({
+        transport:{
+            web:{
+                timeout:10000
+            },
+            tcp:{
+                timeout:120000
+            }
+        }
+    })
     .add( { role:'aggregate', type:'top'}, function(args, done) {
         //
         if(!args.link || !args.project) done(true, {error: 'no project or link provided'});
@@ -36,5 +44,15 @@ require('seneca')()
           done(null, {arga: args, data:null, error: err.stack});
         });
     } )
+    .add( {role: 'parse', type: 'keywords'}, function(args, done) {
+        if(args.keyword === undefined) done(true, {error: "main param is not provided"});
+
+        var response = Parser.grab(args.keyword);
+        co(response).then(function (value) {
+            done(null, {args: args, data:value});
+        }, function (err) {
+            done(null, {args: args, data:null, error: err.stack});
+        });
+    })
     //.add( { generate:'id', type:'nid'}, id.nid )
-    .listen();
+    .listen({timeout:12000});
