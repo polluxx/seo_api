@@ -10,12 +10,12 @@ var http = require('http'),
         },
         rest: {
           page: 1,
-          page_size: 1
+          page_size: 10
         },
-        token: "990f3b5aadb8bcfe54f7dd013001ce81",
+        token: "",
         fields: []
     },
-    sequenceLimit: 2,
+    sequenceLimit: 3,
     tmpParams: null,
     projects: {
         1: "http://auto.ria.com",
@@ -123,6 +123,7 @@ var http = require('http'),
         //});
         //self.generic.next();
     },
+
     filtration: function(data, reqParams) {
 
         if(data instanceof Object && data.top === undefined) {
@@ -135,9 +136,8 @@ var http = require('http'),
         }
         if(data.top !== undefined) data = data.top;
 
-
-        if(reqParams.minus !== undefined && false) {
-            var indexMinus = data.findIndex(
+        if(reqParams.minus !== undefined) {
+            var indexMinus = this.findIndex(data,
                 function(element, index) {
                     if(element.domain === reqParams.minus) return true;
                 }
@@ -240,7 +240,7 @@ var http = require('http'),
             }
 
             reqParams.method = self.params.methods.keywordsByUrl;
-            reqParams.prefix = self.projects[reqParams.project] + "/";
+            //reqParams.prefix = self.projects[reqParams.project] + "/";
             self.params.rest.position_to = 100;
 
             self.makeResponse(resolve, reject, linksArray, reqParams, false, true);
@@ -302,7 +302,7 @@ var http = require('http'),
           reqParams.method = self.params.methods.concurents;
           reqParams.queryBody = "";
           reqParams.minus = "ria.com";
-          //reqParams.limit = 10;
+          reqParams.limit = 10;
           self.params.rest.position_to = 11;
           self.makeResponse(resolve, reject, reqParams.keywords, reqParams, true);
 
@@ -319,6 +319,19 @@ var http = require('http'),
         res = yield this.list(reqParams);
 
         return res;
+    },
+    findIndex: function(data, callable) {
+        if(typeof data !== "object" || !data instanceof Array) throw new Error("TypeError: argument passed is not correct");
+
+        var findedIndex = -1, response;
+        data.forEach(function(item, index) {
+            response = callable.call(this, item, index);
+            if(response) {
+                findedIndex = index;
+                return;
+            }
+        });
+        return findedIndex;
     },
     generic: null,
     itemsList: {}
