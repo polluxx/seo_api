@@ -12,7 +12,7 @@ var Prodvigator = require('./services/prodvigator'),
     require('seneca')({
         transport:{
             web:{
-                timeout:10000
+                timeout:20000
             },
             tcp:{
                 timeout:120000
@@ -47,7 +47,7 @@ var Prodvigator = require('./services/prodvigator'),
     .add( {role: 'parse', type: 'keywords'}, function(args, done) {
         if(args.keyword === undefined) done(true, {error: "main param is not provided"});
 
-        var response = Parser.grab(args.keyword);
+        var response = Parser.proxy(args.keyword);
         co(response).then(function (value) {
             done(null, {args: args, data:value});
         }, function (err) {
@@ -55,4 +55,4 @@ var Prodvigator = require('./services/prodvigator'),
         });
     })
     //.add( { generate:'id', type:'nid'}, id.nid )
-    .listen({timeout:12000});
+    .listen({timeout:22000});
