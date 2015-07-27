@@ -12,6 +12,7 @@ var mysql = require('mysql'),
               });
 
               // Release connection
+              console.log('connect resolved');
               connection.end();
           });
       },
@@ -20,8 +21,9 @@ var mysql = require('mysql'),
         return new Promise(function(resolve, decline) {
               proxiesData = self.connect();
 
-            console.log(proxiesData);
               proxiesData.then(function(connection) {
+                  console.log(connection);
+
                   connection.queryRow(
                       'SELECT * FROM seo_proxy where proxy_status = 1 limit ?', [3],
                       function(err, row) {
