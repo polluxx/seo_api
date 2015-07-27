@@ -24,10 +24,11 @@ var mysql = require('mysql'),
               proxiesData.then(function(connection) {
                   console.log(connection);
 
-                  connection.queryRow(
+                  connection.query(
                       'SELECT * FROM seo_proxy where proxy_status = 1 limit ?', [3],
                       function(err, row) {
-                          console.dir({queryRow:row});
+                          console.log(row);
+                          //console.dir({queryRow:row});
                       }
                   );
               }).
