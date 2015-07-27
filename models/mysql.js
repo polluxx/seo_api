@@ -19,6 +19,8 @@ var mysql = require('mysql'),
         var self = this;
         return new Promise(function(resolve, decline) {
               proxiesData = self.connect();
+
+            console.log(proxiesData);
               proxiesData.then(function(connection) {
                   connection.queryRow(
                       'SELECT * FROM seo_proxy where proxy_status = 1 limit ?', [3],
