@@ -202,7 +202,9 @@ var Parser = require('parse5').Parser,
 
         },
         proxy: function(keyword) {
-          var self = this;
+
+
+            var self = this;
             var proxies = [
                 "89.46.101.122:80",
                 "199.200.120.140:8089",
@@ -219,6 +221,7 @@ var Parser = require('parse5').Parser,
             ], promises = [], self = this, response;
 
             return new Promise(function(resolve, decline) {
+
 
                 for(proxy of proxies) {
                     promises.push(self.grab(keyword, proxy, true));

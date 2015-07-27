@@ -2,8 +2,9 @@
 'use strict';
 
 var Prodvigator = require('./services/prodvigator'),
-    Cassandra = require('./models/cassandra'),
+    //Cassandra = require('./models/cassandra'),
     Parser = require('./services/parser'),
+    mysql = require('./models/mysql.js'),
     co = require('co');
 
 //logic
@@ -49,6 +50,16 @@ var Prodvigator = require('./services/prodvigator'),
 
         var response = Parser.proxy(args.keyword);
         co(response).then(function (value) {
+            done(null, {args: args, data:value});
+        }, function (err) {
+            done(null, {args: args, data:null, error: err.stack});
+        });
+    })
+    .add({role: 'mysql', type: 'proxies'}, function(args, done) {
+        if(args.pass === undefined || args.pass !== "nD54zM1") done(true, {error: "you don't have permissions"});
+
+        var data = mysql.proxies(args);
+        co(data).then(function (value) {
             done(null, {args: args, data:value});
         }, function (err) {
             done(null, {args: args, data:null, error: err.stack});

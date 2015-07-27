@@ -21,7 +21,7 @@ var mysql = require('mysql'),
               proxiesData = self.connect();
               proxiesData.then(function(connection) {
                   connection.queryRow(
-                      'SELECT * FROM proxies limit ?', [3],
+                      'SELECT * FROM seo_proxy where proxy_status = 1 limit ?', [3],
                       function(err, row) {
                           console.dir({queryRow:row});
                       }
