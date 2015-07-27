@@ -11,9 +11,6 @@ var mysql = require('mysql'),
                   resolve(connection);
               });
 
-              // Release connection
-              console.log('connect resolved');
-              connection.end();
           });
       },
       proxies: function(params) {
@@ -31,8 +28,13 @@ var mysql = require('mysql'),
                           //console.dir({queryRow:row});
                       }
                   );
+
+                  // Release connection
+                  console.log('connect resolved');
+                  connection.end();
               }).
               catch(function(err) {
+                  connection.end();
                   decline(err);
               });
         });
