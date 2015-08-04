@@ -1,7 +1,9 @@
 var Parser = require('parse5').Parser,
     Https = require('https'),
+    Http = require('http'),
     mysql = require('../models/mysql.js'),
     antigate = require('./anti-gate.js'),
+    neo4j = require('../models/neo4j.js'),
     HttpsProxyAgent = require('https-proxy-agent'),
     parser = {
         params: {
@@ -90,7 +92,7 @@ var Parser = require('parse5').Parser,
             }
 
             seek = link.match(/(http|https):\/\/([\w+?\.\w+])+([a-zA-Z0-9а-яА-Я\~\!\@\#\$\%\^\*\(\)_\-\=\+\\\/\?\.\:\;\'\,]*)?/);
-            if(seek[0] !== undefined) link = seek[0];
+            if(seek !== null && seek[0] !== undefined) link = seek[0];
 
             return link;
         },
@@ -151,13 +153,13 @@ var Parser = require('parse5').Parser,
 
                         if(res.statusCode === 302) {
                             // make data check
-                            var resultChecking  = antigate.process(res.headers.location);
+                            /*var resultChecking  = antigate.process(res.headers.location);
                             resultChecking.then(function(checked) {
                                   console.log("on CAPTCHA: ", checked);
                             }).
                             catch(function(err) {
                                 console.log("on CAPTCHA ERROR: ", err);
-                            })
+                            })*/
 
                         }
 
@@ -178,7 +180,7 @@ var Parser = require('parse5').Parser,
                             console.log("-- END REQUEST --");
                             response.data = self.parse(chunked);
 
-
+                            neo4j.publishLinks(response.data, keyword);
                             console.info("DATA MUST BE RESOLVED");
 
                             resolve(response);
@@ -215,10 +217,10 @@ var Parser = require('parse5').Parser,
 
             var self = this;
             var proxies = [
-                "89.46.101.122:80",
-                "199.200.120.140:8089",
-                "81.163.88.65:8080",
-                "1.179.143.178:312",
+                "177.107.97.246:8080",
+                "193.25.120.235:8080",
+                "109.104.144.42:8080",
+                "186.42.181.203:8080",
                 "115.127.64.58:8080",
                 "60.207.166.152:80",
                 "46.10.205.103:8080",
@@ -232,6 +234,7 @@ var Parser = require('parse5').Parser,
 
             return new Promise(function(resolve, decline) {
 
+                //proxies = self.getProxies();
 
                 for(proxy of proxies) {
                     promises.push(self.grab(keyword, proxy, responseStack));
@@ -241,12 +244,46 @@ var Parser = require('parse5').Parser,
                     resolve(result);
                 },function(err) {
                   console.log("PROXY RACE ERROR");
-                  console.log(err);
+                  //console.log(err);
                     // TODO: log error
                     //decline(err);
                 });
 
             });
+        },
+        getProxies: function() {
+            var options = {
+                host: "rank.ria.com",
+                port: 10101,
+                path: "/act?role=mysql&type=proxies&pass=nD54zM1&page=1",
+                method: 'GET'
+            },
+            raw = "",
+            result,
+            request = http.request(options, function (resp) {
+                if (resp.statusCode !== 200) {
+                    console.log({"error": "Error in request!", raw: resp});
+                    return null;
+                }
+
+                resp.setEncoding('utf8');
+                resp.on('data', function (chunk) {
+                    raw += chunk;
+
+                });
+
+                resp.on('end', function() {
+                    result = JSON.parse(raw);
+                    console.log(result);
+                });
+            });
+
+            request.on('error', function (e) {
+                console.log('problem with request: ' + e.message);
+                return null;
+            });
+            console.log("request done!");
+            request.end();
         }
     };
 

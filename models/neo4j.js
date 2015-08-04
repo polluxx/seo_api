@@ -1,7 +1,8 @@
 'use strict';
 
-var r = require("request"),
-seneca = require('seneca'),
+var http = require("http"),
+r = require("request"),
+crypto = require("crypto"),
 config = require('../config.js'),
 ASQ = require('asynquence'),
 neo4j = {
@@ -71,7 +72,7 @@ neo4j = {
               .then(function (done, keywords) {
                   var promises = [], keyword, linkFunct;
                   for(keyword of keywords) {
-                      linkFunct = self.findLinkKeywords(keyword, 100);
+                      linkFunct = self.checkKeywordsLinks(keyword, 100);
                       promises.push(linkFunct);
                   }
 
@@ -81,23 +82,23 @@ neo4j = {
                       resolve(response);
                   })
                   .catch(function(err) {
-                      console.error(err)
+                      //console.error(err)
                       reject(err);
                   });
               })
         });
     },
-    findLinkKeywords: function(link, project) {
-        var self = this, query, params = {limit: 100}, response;
+    checkKeywordsLinks: function(keyword, limit) {
+        var self = this, query, params = {limit: limit}, response;
         return new Promise(function(resolve, reject) {
 
-            if(link === undefined || (typeof link !== "string") || project === undefined) {
-                reject("link is not an string or empty");
+            if(keyword === undefined || (typeof keyword !== "string")) {
+                reject("keyword is not an string or empty");
             }
 
             ASQ(function(done) {
-                query  = "MATCH (n:Keyword) RETURN n, labels(n) as l LIMIT {limit}";
-                response = self.getLinksByKeyword(link, params.limit);
+
+                response = self.getLinksByKeyword(keyword, params.limit);
                 response.then(function(result) {
                     if(result !== null) {
                         resolve(result);
@@ -110,17 +111,81 @@ neo4j = {
                     reject(err);
                 });
             }).
-            then(function() {
+            then(function(_, resp) {
+              console.log(resp);
+              return;
 
-                r.get('http://localhost:10101/act?role=aggregate&type=top&link[]='+link,
-                function(err, res) {
+              if(resp !== null) done(resp);
 
-                   console.log(err);
-                   console.log(res);
-                });
+               var options = {
+                   host: "localhost",
+                   port: 10101,
+                   path: '/act?role=parse&type=concurrents&keyword='+encodeURI(keyword)+'&encoded=true',
+                   method: 'GET'
+               },
+               raw = "",
+               request = http.request(options, function (resp) {
+                   console.log('STATUS: ' + resp.statusCode);
+                   if(resp.statusCode !== 200) {
+                      reject(resp);
+                      return;
+                   }
+
+                   resp.setEncoding('utf8');
+                   resp.on('data', function (chunk) {
+                       raw += chunk;
+                   });
+
+                   resp.on("end", function(resp) {
+                       var result = JSON.parse(raw);
+
+                       if(result.data === undefined) {
+                          reject("empty response");
+                          return;
+                       }
+
+                       resolve(result.data.data);
+
+                       // save into DB
+
+                       console.log(" -- --");
+                   });
+               });
+               request.on('error', function (e) {
+                   //console.log('problem with request: ' + e.message);
+                   done({"error": e.message, "raw": e, data: null});
+               });
+
+               request.end();
 
             });
         });
+    },
+    publishLinks(links, keyword) {
+        console.log(" -- PUBLISH DATA FROM PARSE -- ");
+
+        //console.log(keyword);
+
+        //var cryptedWord = crypto.createHash('md5').update(keyword).digest("base64"),
+        var query = "CREATE (keyword:Keyword {src:'"+keyword+"', top:'"+links[0].src+"'})",
+        link, label;
+
+        for(link of links) {
+            label = link.src.match(/\w+/g).join("");
+            query += ",("+label+":Link {src:'"+link.src+"', position:"+link.position+"})";
+
+            //if(!first) connections += ",";
+            query += ",("+label+")-[:TOP10]->(keyword)";
+            //first = false;
+        }
+
+        //query += "," + connections;
+
+        var response = this.cypher(query, null, function(err, response) {
+            console.log(err);
+            console.log(response);
+        });
+
     },
     getLinksByKeyword: function (keyword, limit) {
         var self = this;
@@ -131,7 +196,9 @@ neo4j = {
 
 
             if (limit === undefined || limit > 100) limit = 100;
-            var query  = "MATCH (n:Link) RETURN n, labels(n) as l LIMIT {limit}";
+            var query  = "MATCH (n:Link) RETURN n, labels(n) as l LIMIT "+limit;
+
+            query = "MATCH (n:Link)-[:TOP10]->(keyword) where keyword.src = '%D0%B0%D0%B2%D1%82%D0%BE%D0%BD%D0%BE%D0%B2%D0%BE%D1%81%D1%82%D0%B8%20%D0%BC%D0%B8%D1%80%D0%B0' RETURN n,keyword, labels(n) as l LIMIT 100";
 
             var response = self.cypher(query, null, function(err, response) {
                 if(err) {
@@ -144,8 +211,8 @@ neo4j = {
                     return;
                 }
 
-                if(response.results.data !== undefined && response.results.data.length) {
-                    resolve(response.results);
+                if(response.results[0] !== undefined && response.results[0].data !== undefined && response.results[0].data.length) {
+                    resolve(response.results[0].data);
                     return;
                 }
 

@@ -1,3 +1,5 @@
+'use strict;'
+
 var http = require('http'),
     ASQ = require('asynquence'),
     config = require('../config'),
@@ -113,12 +115,10 @@ var http = require('http'),
                           "left": result.queries_left});
                     });
                 });
-
             request.on('error', function (e) {
                 //console.log('problem with request: ' + e.message);
                 done({"error": e.message, "raw": e, data: null});
             });
-
             console.log("request done!");
             request.end();
         //});
@@ -255,7 +255,7 @@ var http = require('http'),
             //return function(done, elm) {
 
               if(encode) item = encodeURI(item);
-
+console.log( item );
                 if(reqParams.prefix !== undefined) prefix = reqParams.prefix;
                 if(reqParams.suffix !== undefined) suffix = reqParams.suffix;
 
@@ -275,7 +275,7 @@ var http = require('http'),
                         resolve(result);
                     })
                     .or( function(err) {
-                        console.log( "Error: " + JSON.stringify(err) );
+                        console.log( err );
                         reject("Error: " + JSON.stringify(err));
                     } );
                 });

@@ -49,7 +49,7 @@ var Prodvigator = require('./services/prodvigator'),
     .add( {role: 'parse', type: 'concurrents'}, function(args, done) {
         if(args.keyword === undefined) done(true, {error: "main param is not provided"});
 
-        var response = Parser.proxy(args.keyword);
+        var encoded = args.encoded || false, keyword = encoded ? decodeURI(args.keyword) : args.keyword, response = Parser.proxy(keyword);
         co(response).then(function (value) {
             done(null, {args: args, data:value});
         }, function (err) {
