@@ -111,7 +111,7 @@ var Parser = require('parse5').Parser,
                 return resp;
             }
         },
-        grab: function (keyword, proxy, breaked) {
+        grab: function (keyword, proxy, response) {
             var self = this;
 
             keyword = encodeURI(keyword);
@@ -119,7 +119,8 @@ var Parser = require('parse5').Parser,
             return new Promise(function(resolve, decline) {
                 var destination = self.params.destination.google,
                     searchReq = destination.method + keyword,
-                    httpsRequest, chunked = "";
+                    httpsRequest, chunked = "",
+
                     request = self.buildRequest(proxy, destination);
 
                 if(destination.secure === true) {
@@ -161,7 +162,8 @@ var Parser = require('parse5').Parser,
                         }
 
                         if(res.statusCode !== 200) {
-                            decline(JSON.stringify(res.headers));
+                            response.errorStack.push(JSON.stringify(res.headers));
+                            if(response.errorStack.length === 10) decline(response);
                             return;
                         };
 
@@ -174,22 +176,29 @@ var Parser = require('parse5').Parser,
                         })
                         .on('end', function() {
                             console.log("-- END REQUEST --");
-                              
-                            resolve(self.parse(chunked));
+                            response.data = self.parse(chunked);
+
+
+                            console.info("DATA MUST BE RESOLVED");
+
+                            resolve(response);
                         })
                         .on('error', function(err) {
                             console.error("ON request: " + searchReq);
 
                             console.log(err);
-                            decline(err);
+                            response.errorStack.push(err);
+                            if(response.errorStack.length === 10) decline(response);
                         });
                     });
 
                     httpsRequest.on('error', function(err) {
                         console.error("ON connection: " + searchReq);
+                        response.errorStack.push(err);
 
+                        if(response.errorStack.length === 10) decline(response);
                         console.log(err);
-                        decline(err);
+                        //decline(err);
                         return;
                     });
 
@@ -218,20 +227,20 @@ var Parser = require('parse5').Parser,
                 "104.41.151.86:80",
                 "50.115.194.97:8080",
                 "119.40.98.26:8080"
-            ], promises = [], self = this, response;
+            ], promises = [], self = this, response,
+            responseStack = {errorStack: [], data:null};
 
             return new Promise(function(resolve, decline) {
 
 
                 for(proxy of proxies) {
-                    promises.push(self.grab(keyword, proxy, true));
+                    promises.push(self.grab(keyword, proxy, responseStack));
                 }
 
-                response = Promise.all(promises, function(result) {
+                response = Promise.race(promises).then(function(result) {
                     resolve(result);
-                }).
-                catch(function(err) {
-
+                },function(err) {
+                  console.log("PROXY RACE ERROR");
                   console.log(err);
                     // TODO: log error
                     //decline(err);

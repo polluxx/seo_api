@@ -1,5 +1,5 @@
 var http = require('http'),
-    ASQ = require('asynquence');
+    ASQ = require('asynquence'),
     config = require('../config'),
     Prodvigator = {
     params: {
@@ -312,9 +312,9 @@ var http = require('http'),
 
     check: function *(reqParams) {
         var item, res;
-        if(!reqParams.link || !reqParams.project) {
+        if(!reqParams.link) {
             // toDo LOG
-            res = yield {error: "no link or project provided"};
+            res = yield {error: "no link provided"};
             return res;
         }
         res = yield this.list(reqParams);

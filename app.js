@@ -5,6 +5,7 @@ var Prodvigator = require('./services/prodvigator'),
     //Cassandra = require('./models/cassandra'),
     Parser = require('./services/parser'),
     mysql = require('./models/mysql.js'),
+    neo4j = require('./models/neo4j.js'),
     co = require('co');
 
 //logic
@@ -22,7 +23,7 @@ var Prodvigator = require('./services/prodvigator'),
     })
     .add( { role:'aggregate', type:'top'}, function(args, done) {
         //
-        if(!args.link || !args.project) done(true, {error: 'no project or link provided'});
+        if(!(args.link)) done(true, {error: 'no link provided'});
         var resp, result;
 
           resp = Prodvigator.check(args);
@@ -45,7 +46,7 @@ var Prodvigator = require('./services/prodvigator'),
           done(null, {arga: args, data:null, error: err.stack});
         });
     } )
-    .add( {role: 'parse', type: 'keywords'}, function(args, done) {
+    .add( {role: 'parse', type: 'concurrents'}, function(args, done) {
         if(args.keyword === undefined) done(true, {error: "main param is not provided"});
 
         var response = Parser.proxy(args.keyword);
@@ -63,6 +64,18 @@ var Prodvigator = require('./services/prodvigator'),
             done(null, {args: args, data:value});
         }, function (err) {
             done(null, {args: args, data:null, error: err.stack});
+        });
+    })
+    .add({role: 'check', type: 'concurrents'}, function(args, done) {
+        if(args.keywords !== undefined && !args.keywords instanceof Array) {
+            done(true, {error: 'argument keywords isn\'t an instance of Array'});
+        }
+
+        var data = neo4j.findKeywordsLinks(args);
+        co(data).then(function (value) {
+            done(null, {args: args, data:value});
+        }, function (err) {
+            done(null, {args: args, data:null, error: err.stack || err});
         });
     })
     //.add( { generate:'id', type:'nid'}, id.nid )
