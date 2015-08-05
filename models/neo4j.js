@@ -60,13 +60,55 @@ neo4j = {
 
             ASQ(function(done) {
                   keywords = args.keywords;
-                  if(keywords === undefined) {
-                      if(args.target === undefined) reject("Error: target param or keywords is not provided");
+                    if(keywords !== undefined) {
+                        done(keywords);
+                        return;
+                    }
 
-                      //keywords =
-                  }
+                    if(args.target === undefined) reject("Error: target param or keywords is not provided");
 
-                  done(keywords);
+                    reject("Data is not ready yet");
+
+                    var options = {
+                            host: "localhost",
+                            port: 10101,
+                            path: '/act?role=aggregate&type=top&link='+args.target,
+                            method: 'GET'
+                        },
+                        raw = "",
+                        items = [],
+                        request = http.request(options, function (resp) {
+                            if(resp.statusCode !== 200) {
+                                reject(resp);
+                                return;
+                            }
+                            resp.setEncoding('utf8');
+
+                            resp.setTimeout(3000);
+                            resp.on('data', function (chunk) {
+                                raw += chunk;
+                            });
+
+                            resp.on("end", function(resp) {
+                                var result = JSON.parse(raw);
+
+                                if(result.data === undefined || result.data[0] === undefined) {
+                                    reject("empty response");
+                                    return;
+                                }
+
+                                items = result.data[0].items;
+
+
+                                console.log(items);
+                            });
+                        });
+                    request.on('error', function (e) {
+                        //console.log('problem with request: ' + e.message);
+                        reject({"error": e.message, "raw": e, data: null});
+                    });
+
+                    request.end();
               })
               //.promise()
               .then(function (done, keywords) {
@@ -113,9 +155,12 @@ neo4j = {
             }).
             then(function(_, resp) {
               console.log(resp);
-              return;
+              //return;
 
-              if(resp !== null) done(resp);
+              if(resp !== null) {
+                  done(resp);
+                  return;
+              }
 
                var options = {
                    host: "localhost",
@@ -132,6 +177,8 @@ neo4j = {
                    }
 
                    resp.setEncoding('utf8');
+
+                   resp.setTimeout(3000);
                    resp.on('data', function (chunk) {
                        raw += chunk;
                    });
@@ -161,34 +208,41 @@ neo4j = {
             });
         });
     },
-    publishLinks(links, keyword) {
+    publishKeywords: function(keywords){
+        console.log(" -- PUBLISH LINKS FROM PRO -- ");
+        var keyword, query = "", domain = keywords[0].url, label = "";
+
+        query += 'MERGE (domain:Link {src:"'+link.src+'"}) ON CREATE SET '+label+'.position = '+link.position+' ON MATCH SET '+label+'.position = '+link.position+', '+label+'.updated = timestamp()\r\n';
+
+        for(keyword of keywords) {
+            query += 'MERGE ('+label+':Keyword {src:"'+decodeURI(keyword.keyword)+'"}) ON MATCH SET keyword.updated = timestamp()\r\n';
+
+            // ADD connection with Link and Keyword
+            query += 'MERGE (domain)-[:CONTAINS]->('+label+')\r\n';
+        }
+    },
+    publishLinks: function(links, keyword) {
         console.log(" -- PUBLISH DATA FROM PARSE -- ");
 
-        //console.log(keyword);
-
-        //var cryptedWord = crypto.createHash('md5').update(keyword).digest("base64"),
-        var query = "CREATE (keyword:Keyword {src:'"+decodeURI(keyword)+"', top:'"+links[0].src+"'})",
+        // ADD Keyword
+        var query = 'MERGE (keyword:Keyword {src:"'+decodeURI(keyword)+'"}) ON CREATE SET keyword.top = "'+links[0].src+'" ON MATCH SET keyword.top = "'+links[0].src+'", keyword.updated = timestamp()\r\n',
         link, label;
 
         for(link of links) {
             label = link.src.match(/\w+/g).join("");
-            query += ",("+label+":Link {src:'"+link.src+"', position:"+link.position+"})";
-
-            //if(!first) connections += ",";
-            query += ",("+label+")-[:TOP10]->(keyword)";
-            //first = false;
+            // ADD Link node
+            query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON CREATE SET '+label+'.position = '+link.position+' ON MATCH SET '+label+'.position = '+link.position+', '+label+'.updated = timestamp()\r\n';
+            // ADD connection with Link and Keyword
+            query += 'MERGE ('+label+')-[:TOP10]->(keyword)\r\n';
         }
-
-        //query += "," + connections;
-
-        var response = this.cypher(query, null, function(err, response) {
+        this.cypher(query, null, function(err, response) {
             console.log(err);
             console.log(response);
         });
 
     },
     getLinksByKeyword: function (keyword, limit) {
-        var self = this;
+        var self = this, query;
 
         return new Promise(function(resolve, reject) {
             if(keyword === undefined || typeof keyword !== "string") reject("TypeError: argument is not a string or empty");
@@ -196,11 +250,10 @@ neo4j = {
 
 
             if (limit === undefined || limit > 100) limit = 100;
-            var query  = "MATCH (n:Link) RETURN n, labels(n) as l LIMIT "+limit;
-
-            query = "MATCH (n:Link)-[:TOP10]->(keyword) where keyword.src = '"+encodeURI(keyword)+"' RETURN n,keyword, labels(n) as l LIMIT 100";
+            query = "MATCH (n:Link)-[:TOP10]->(keyword) where keyword.src = '"+keyword+"' RETURN n,keyword LIMIT "+limit;
+            //query = "MATCH (n:Link),(keyword:Keyword) OPTIONAL MATCH (n)-[r1]-(), (keyword)-[r2]-() DELETE n,keyword,r1,r2";
             console.log(query);
-            var response = self.cypher(query, null, function(err, response) {
+            self.cypher(query, null, function(err, response) {
                 if(err) {
                     reject(err);
                     return;
