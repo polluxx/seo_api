@@ -22,7 +22,7 @@ var Parser = require('parse5').Parser,
             filters: {
                 minus: {
                     links: [
-                        "ria.com"
+                        //"ria.com"
                     ]
                 }
             }
@@ -212,11 +212,12 @@ var Parser = require('parse5').Parser,
 
 
         },
-        proxy: function(keyword) {
+        proxy: function(keyword, attempts) {
 
 
-            var self = this;
-            var proxies = [
+            var self = this,
+            attempts = attempts || 0,
+            proxies = [
                 "177.107.97.246:8080",
                 "193.25.120.235:8080",
                 "109.104.144.42:8080",
@@ -248,7 +249,11 @@ var Parser = require('parse5').Parser,
                 response = Promise.race(promises).then(function(result) {
                     resolve(result);
                 },function(err) {
+
                   console.log("PROXY RACE ERROR");
+                  ++attempts;
+                  if(attempts < 3) return self.proxy(keyword, attempts);
+                  console.log("PROXY RACE MORE THAN 3 ATTEMPTS! END");
                   //console.log(err);
                     // TODO: log error
                     //decline(err);
@@ -256,18 +261,20 @@ var Parser = require('parse5').Parser,
 
             });
         },
-        getProxies: function () {
+        getProxies: function (page) {
 
             return new Promise(function(resolve, reject) {
 
+                page = page || 1;
                 var options = {
                     host: "rank.ria.com",
                     port: 10101,
-                    path: "/act?role=mysql&type=proxies&pass=nD54zM1&page=1",
+                    path: "/act?role=mysql&type=proxies&pass=nD54zM1&page="+page+"&limit=5",
                     method: 'GET'
                 },
                 raw = "",
                 result,
+
                 response,
                 request = Http.request(options, function (resp) {
                     if (resp.statusCode !== 200) {

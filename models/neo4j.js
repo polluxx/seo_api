@@ -2,6 +2,7 @@
 
 var http = require("http"),
 r = require("request"),
+transliteration = require('transliteration.cyr'),
 crypto = require("crypto"),
 config = require('../config.js'),
 ASQ = require('asynquence'),
@@ -99,8 +100,8 @@ neo4j = {
 
                                 items = result.data[0].items;
 
-
-                                console.log(items);
+                                self.publishKeywords(items);
+                                //console.log(items);
                             });
                         });
                     request.on('error', function (e) {
@@ -210,16 +211,25 @@ neo4j = {
     },
     publishKeywords: function(keywords){
         console.log(" -- PUBLISH LINKS FROM PRO -- ");
-        var keyword, query = "", domain = keywords[0].url, label = "";
+        var keyword, query = "", domain = keywords[0].url, label = "", unique = [];
 
-        query += 'MERGE (domain:Link {src:"'+link.src+'"}) ON CREATE SET '+label+'.position = '+link.position+' ON MATCH SET '+label+'.position = '+link.position+', '+label+'.updated = timestamp()\r\n';
+        query += 'MERGE (domain:Link {src:"'+domain+'"}) ON MATCH SET domain.updated = timestamp()\r\n';
 
         for(keyword of keywords) {
-            query += 'MERGE ('+label+':Keyword {src:"'+decodeURI(keyword.keyword)+'"}) ON MATCH SET keyword.updated = timestamp()\r\n';
+            label = transliteration.transliterate(keyword.keyword).replace(/\s/g, "").match(/\w+/g).join("");
+
+            if(~unique.indexOf(label)) continue;
+            unique.push(label);
+            query += 'MERGE ('+label+':Keyword {src:"'+decodeURI(keyword.keyword)+'"}) \r\n ON MATCH SET '+label+'.updated = timestamp()\r\n';
 
             // ADD connection with Link and Keyword
             query += 'MERGE (domain)-[:CONTAINS]->('+label+')\r\n';
+
         }
+        this.cypher(query, null, function(err, response) {
+            console.log(err);
+            console.log(response);
+        });
     },
     publishLinks: function(links, keyword) {
         console.log(" -- PUBLISH DATA FROM PARSE -- ");

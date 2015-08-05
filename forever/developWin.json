@@ -1,0 +1,8 @@
+{
+  "uid": "seo_api_app",
+  "append": true,
+  "watch": true,
+  "script": "app.js",
+  "sourceDir": "C:/Users/castor/Documents/GitHub/seo_api",
+  "command": "iojs"
+}
