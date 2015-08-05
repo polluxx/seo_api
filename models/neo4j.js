@@ -167,7 +167,7 @@ neo4j = {
         //console.log(keyword);
 
         //var cryptedWord = crypto.createHash('md5').update(keyword).digest("base64"),
-        var query = "CREATE (keyword:Keyword {src:'"+keyword+"', top:'"+links[0].src+"'})",
+        var query = "CREATE (keyword:Keyword {src:'"+decodeURI(keyword)+"', top:'"+links[0].src+"'})",
         link, label;
 
         for(link of links) {
@@ -198,8 +198,8 @@ neo4j = {
             if (limit === undefined || limit > 100) limit = 100;
             var query  = "MATCH (n:Link) RETURN n, labels(n) as l LIMIT "+limit;
 
-            query = "MATCH (n:Link)-[:TOP10]->(keyword) where keyword.src = '%D0%B0%D0%B2%D1%82%D0%BE%D0%BD%D0%BE%D0%B2%D0%BE%D1%81%D1%82%D0%B8%20%D0%BC%D0%B8%D1%80%D0%B0' RETURN n,keyword, labels(n) as l LIMIT 100";
-
+            query = "MATCH (n:Link)-[:TOP10]->(keyword) where keyword.src = '"+encodeURI(keyword)+"' RETURN n,keyword, labels(n) as l LIMIT 100";
+            console.log(query);
             var response = self.cypher(query, null, function(err, response) {
                 if(err) {
                     reject(err);

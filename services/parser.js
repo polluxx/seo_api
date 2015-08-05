@@ -229,12 +229,17 @@ var Parser = require('parse5').Parser,
                 "104.41.151.86:80",
                 "50.115.194.97:8080",
                 "119.40.98.26:8080"
-            ], promises = [], self = this, response,
+            ], promises = [], self = this, response, proxyTmp,
             responseStack = {errorStack: [], data:null};
 
             return new Promise(function(resolve, decline) {
 
-                //proxies = self.getProxies();
+                self.getProxies().then(function(response) {
+                    proxies = response;
+                }).catch(function(err) {
+                    decline(err);
+                    return;
+                });
 
                 for(proxy of proxies) {
                     promises.push(self.grab(keyword, proxy, responseStack));
@@ -251,39 +256,54 @@ var Parser = require('parse5').Parser,
 
             });
         },
-        getProxies: function() {
-            var options = {
-                host: "rank.ria.com",
-                port: 10101,
-                path: "/act?role=mysql&type=proxies&pass=nD54zM1&page=1",
-                method: 'GET'
-            },
-            raw = "",
-            result,
-            request = http.request(options, function (resp) {
-                if (resp.statusCode !== 200) {
-                    console.log({"error": "Error in request!", raw: resp});
+        getProxies: function () {
+
+            return new Promise(function(resolve, reject) {
+
+                var options = {
+                    host: "rank.ria.com",
+                    port: 10101,
+                    path: "/act?role=mysql&type=proxies&pass=nD54zM1&page=1",
+                    method: 'GET'
+                },
+                raw = "",
+                result,
+                response,
+                request = Http.request(options, function (resp) {
+                    if (resp.statusCode !== 200) {
+                        reject({"error": "Error in request!", raw: resp});
+                        //yield null;
+                        return null;
+                    }
+
+                    resp.setEncoding('utf8');
+                    resp.on('data', function (chunk) {
+                        raw += chunk;
+
+                    });
+
+                    resp.on('end', function () {
+                        result = JSON.parse(raw);
+                        //console.log(result);
+                        if(result.data === undefined) {
+                            reject("Empty proxies data!");
+                            return null;
+                        }
+
+                        resolve(result.data.map(function(item) {
+                            return item.proxy_host;
+                        }));
+                    });
+                });
+
+                request.on('error', function (e) {
+                    reject('problem with request: ' + e.message);
+
                     return null;
-                }
-
-                resp.setEncoding('utf8');
-                resp.on('data', function (chunk) {
-                    raw += chunk;
-
                 });
-
-                resp.on('end', function() {
-                    result = JSON.parse(raw);
-                    console.log(result);
-                });
+                console.log("request done!");
+                request.end();
             });
-
-            request.on('error', function (e) {
-                console.log('problem with request: ' + e.message);
-                return null;
-            });
-            console.log("request done!");
-            request.end();
         }
     };
 
