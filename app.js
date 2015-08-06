@@ -4,6 +4,7 @@
 var Prodvigator = require('./services/prodvigator'),
     //Cassandra = require('./models/cassandra'),
     Parser = require('./services/parser'),
+    rabbit = require('./services/rabbit'),
     mysql = require('./models/mysql.js'),
     neo4j = require('./models/neo4j.js'),
     co = require('co');
@@ -66,6 +67,8 @@ var Prodvigator = require('./services/prodvigator'),
             done(null, {args: args, data:null, error: err.stack});
         });
     })
+
+    // NEO4J
     .add({role: 'check', type: 'concurrents'}, function(args, done) {
         if(args.keywords !== undefined && !args.keywords instanceof Array) {
             done(true, {error: 'argument keywords isn\'t an instance of Array'});
@@ -78,5 +81,49 @@ var Prodvigator = require('./services/prodvigator'),
             done(null, {args: args, data:null, error: err.stack || err});
         });
     })
+    .add({role: 'check', type: 'top100'}, function(args, done) {
+        if(args.target !== undefined && !args.target instanceof String) {
+            done(true, {error: 'argument target isn\'t an instance of String'});
+        }
+
+        var data = neo4j.findDomainKeywords(args);
+        co(data).then(function (value) {
+            done(null, {args: args, data:value});
+        }, function (err) {
+            done(null, {args: args, data:null, error: err.stack || err});
+        });
+    })
+
+    // PUBLISH
+    .add({role: 'publish', type: 'concurrents'}, function(args, done) {
+        if(args.target !== undefined && !args.target instanceof String) {
+            done(true, {error: 'argument target isn\'t an instance of String'});
+        }
+
+        neo4j.publishConcurrents(args.target);
+        done(null, {args: args, data:null});
+    })
+    .add({role: 'publish', type: 'concurrent-keys'}, function(args, done) {
+        if(args.target !== undefined && !args.target instanceof String) {
+            done(true, {error: 'argument target isn\'t an instance of String'});
+        }
+
+        neo4j.publishConcurrentKeywords(args.target);
+        done(null, {args: args, data:null});
+    })
+
+    // RABBIT
+    .add({role: 'rabbit', type: 'pub'}, function(args, done) {
+        if(args.message === undefined) done(true, {error: "message is not defined"});
+
+            rabbit.pub(args.message);
+            done(null, {message: "OK"});
+    })
+
+    .add({role: 'rabbit', type: 'sub'}, function(args, done) {
+        rabbit.sub();
+        done(null, {message: "LISTENING"});
+    })
+    .act({role: 'rabbit', type: 'sub'})
     //.add( { generate:'id', type:'nid'}, id.nid )
     .listen({timeout:22000});

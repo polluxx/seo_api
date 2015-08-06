@@ -55,8 +55,81 @@ neo4j = {
          );
 
     },
+    findDomainKeywords: function(args) {
+        var self = this;
+        return new Promise(function(resolve, reject) {
+            ASQ(function(done) {
+
+                if(args.newCheck !== undefined) done(null);
+
+                if(args.target === undefined) reject("Error: target param is not provided");
+
+                self.domainKeywords(args.target).then(function(response) {
+                    if(response.errors.length) reject(response.errors);
+
+                    if(response.results[0] === undefined) {
+                        reject("Empty response");
+                        return;
+                    }
+
+                    resolve(response.results[0].data.map(function(item) {
+                        return item.row[0].src;
+                    }));
+                }).catch(function(err) {
+                    reject(err);
+                    return;
+                });
+
+
+            })
+            .then(function(done, keywords) {
+
+                reject("Data is not ready yet");
+                var options = {
+                        host: "localhost",
+                        port: 10101,
+                        path: '/act?role=aggregate&type=top&link='+args.target,
+                        method: 'GET'
+                    },
+                    raw = "",
+                    items = [],
+                    request = http.request(options, function (resp) {
+                        if(resp.statusCode !== 200) {
+                            reject(resp);
+                            return;
+                        }
+                        resp.setEncoding('utf8');
+
+                        resp.setTimeout(3000);
+                        resp.on('data', function (chunk) {
+                            raw += chunk;
+                        });
+
+                        resp.on("end", function(resp) {
+                            var result = JSON.parse(raw);
+
+                            if(result.data === undefined || result.data[0] === undefined) {
+                                reject("empty response");
+                                return;
+                            }
+
+                            items = result.data[0].items;
+
+                            self.publishKeywords(items);
+                            //console.log(items);
+                        });
+                    });
+                request.on('error', function (e) {
+                    //console.log('problem with request: ' + e.message);
+                    reject({"error": e.message, "raw": e, data: null});
+                });
+
+                request.end();
+            });
+        });
+    },
     findKeywordsLinks: function(args) {
-        var self = this, keywords = [];
+        var self = this, keywords = [], unique = [], row;
         return new Promise(function(resolve, reject) {
 
             ASQ(function(done) {
@@ -66,72 +139,66 @@ neo4j = {
                         return;
                     }
 
-                    if(args.target === undefined) reject("Error: target param or keywords is not provided");
+                    if(args.target === undefined) {
+                        reject("Empty target");
+                        return;
+                    }
 
-                    reject("Data is not ready yet");
+                    self.domainConcurrents(args.target).then(function(response) {
+                        if(response.errors.length) reject(response.errors);
 
-                    var options = {
-                            host: "localhost",
-                            port: 10101,
-                            path: '/act?role=aggregate&type=top&link='+args.target,
-                            method: 'GET'
-                        },
-                        raw = "",
-                        items = [],
-                        request = http.request(options, function (resp) {
-                            if(resp.statusCode !== 200) {
-                                reject(resp);
-                                return;
+                        if(response.results[0] === undefined) {
+                            reject("Empty response");
+                            return;
+                        }
+
+                        resolve(response.results[0].data.reduce(function(prev, next, index) {
+
+                            row = decodeURI(next.row[0].src);
+                            if(index > 1) unique = prev;
+                            if(!~unique.indexOf(row)) unique.push(row);
+
+                            if(index === 1) {
+                                row = decodeURI(prev.row[0].src);
+                                if(!~unique.indexOf(row)) unique.push(row);
                             }
-                            resp.setEncoding('utf8');
 
-                            resp.setTimeout(3000);
-                            resp.on('data', function (chunk) {
-                                raw += chunk;
-                            });
-
-                            resp.on("end", function(resp) {
-                                var result = JSON.parse(raw);
-
-                                if(result.data === undefined || result.data[0] === undefined) {
-                                    reject("empty response");
-                                    return;
-                                }
-
-                                items = result.data[0].items;
-
-                                self.publishKeywords(items);
-                                //console.log(items);
-                            });
-                        });
-                    request.on('error', function (e) {
-                        //console.log('problem with request: ' + e.message);
-                        reject({"error": e.message, "raw": e, data: null});
+                            return unique;
+                        }));
+                    }).catch(function(err) {
+                        reject(err);
+                        return;
                     });
 
-                    request.end();
+
               })
               //.promise()
               .then(function (done, keywords) {
-                  var promises = [], keyword, linkFunct;
-                  for(keyword of keywords) {
-                      linkFunct = self.checkKeywordsLinks(keyword, 100);
-                      promises.push(linkFunct);
-                  }
 
-                  Promise.all(promises)
-                  .then(function(response) {
-                      //console.log(response);
-                      resolve(response);
-                  })
-                  .catch(function(err) {
-                      //console.error(err)
-                      reject(err);
-                  });
+                  reject("Concurrents in process");
+                  self.promiseKeywords(keywords, resolve, reject);
               })
         });
     },
-    checkKeywordsLinks: function(keyword, limit) {
+    promiseKeywords: function(keywords, resolve, reject, newCheck) {
+
+        var promises = [], keyword, linkFunct;
+        for(keyword of keywords) {
+            linkFunct = this.checkKeywordsLinks(keyword, 100, newCheck);
+            promises.push(linkFunct);
+        }
+
+        Promise.all(promises)
+            .then(function(response) {
+                //console.log(response);
+                resolve(response);
+            })
+            .catch(function(err) {
+                //console.error(err)
+                reject(err);
+            });
+    },
+    checkKeywordsLinks: function(keyword, limit, newCheck) {
         var self = this, query, params = {limit: limit}, response;
         return new Promise(function(resolve, reject) {
 
@@ -140,6 +207,8 @@ neo4j = {
             }
 
             ASQ(function(done) {
+
+                if(newCheck !== undefined) done(null);
 
                 response = self.getLinksByKeyword(keyword, params.limit);
                 response.then(function(result) {
@@ -194,9 +263,6 @@ neo4j = {
 
                        resolve(result.data.data);
 
-                       // save into DB
-
-                       console.log(" -- --");
                    });
                });
                request.on('error', function (e) {
@@ -208,6 +274,45 @@ neo4j = {
 
             });
         });
+    },
+    publishConcurrents: function(link) {
+        var self = this;
+        return new Promise(function(resolve, reject) {
+
+            self.findDomainKeywords({target: link}).then(function(response) {
+                if(!response) return;
+
+                self.promiseKeywords(response, resolve, reject, true);
+            }).catch(function(err) {
+                reject(err);
+            });
+        });
+    },
+    publishConcurrentKeywords: function(target) {
+        var self = this, concurrent, promises = [];
+        this.findKeywordsLinks({target: target})
+            .then(function(concurrents) {
+                console.log(concurrents);
+
+                for(concurrent of concurrents) {
+                    promises.push(self.findDomainKeywords({target: concurrent, newCheck: true}));
+                }
+
+                Promise.all(promises)
+                    .then(function(response) {
+                        //console.log(response);
+                        //resolve(response);
+                        console.log("LINK ACKNOWLEDGED");
+                    })
+                    .catch(function(err) {
+                        console.error(err)
+
+                    });
+
+            })
+            .catch(function(err) {
+                console.error(err);
+            });
     },
     publishKeywords: function(keywords){
         console.log(" -- PUBLISH LINKS FROM PRO -- ");
@@ -244,13 +349,33 @@ neo4j = {
             //query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON CREATE SET '+label+'.position = '+link.position+' ON MATCH SET '+label+'.position = '+link.position+', '+label+'.updated = timestamp()\r\n';
             query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON MATCH SET '+label+'.updated = timestamp()\r\n';
             // ADD connection with Link and Keyword
-            query += 'MERGE ('+label+')-[:TOP10{position:'+link.position+',updated: timestamp()}]-(keyword)\r\n';
+            query += 'MERGE ('+label+')-[:TOP10{position:'+link.position+'}]-(keyword)\r\n';
         }
         this.cypher(query, null, function(err, response) {
             console.log(err);
             console.log(response);
         });
 
+    },
+    domainKeywords: function(link) {
+        var query = "MATCH (n:Link)-[r:CONTAINS]->(keyword) WHERE n.src = '"+link+"' RETURN keyword";
+        return this.request(query);
+    },
+    domainConcurrents: function(link) {
+        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' RETURN r";
+        return this.request(query);
+    },
+    request: function(query) {
+        var self = this;
+
+        return new Promise(function(resolve, reject) {
+
+            self.cypher(query, null, function(err, response) {
+                if(err) reject(err);
+
+                resolve(response);
+            });
+        });
     },
     getLinksByKeyword: function (keyword, limit) {
         var self = this, query;

@@ -77,6 +77,8 @@ var Parser = require('parse5').Parser,
 
                 link = this.filterLink(link);
                 if(link === null) continue;
+
+                if(!link.match(/(http:\/\/|https:\/\/).+/g)) continue;
                 //result.text = (item.childNodes[1].childNodes[1].childNodes[6] !== undefined) ? item.childNodes[1].childNodes[1].childNodes[6].value : "";
                 results.push({position: index,src: link});
 
@@ -222,26 +224,26 @@ var Parser = require('parse5').Parser,
 
             var self = this,
             attempts = attempts || 0,
-            /*proxies = [
-                "177.107.97.246:8080",
-                "193.25.120.235:8080",
-                "109.104.144.42:8080",
-                "186.42.181.203:8080",
-                "115.127.64.58:8080",
-                "60.207.166.152:80",
-                "46.10.205.103:8080",
-                "46.191.237.118:1080",
-                "52.4.21.225:80",
-                "104.41.151.86:80",
-                "50.115.194.97:8080",
-                "119.40.98.26:8080"
-            ]*/proxies = [], promises = [], self = this, response, proxy,
+            proxies = [
+                "http://177.107.97.246:8080",
+                "http://193.25.120.235:8080",
+                "http://109.104.144.42:8080",
+                "http://186.42.181.203:8080",
+                "http://115.127.64.58:8080",
+                "http://60.207.166.152:80",
+                "http://46.10.205.103:8080",
+                "http://46.191.237.118:1080",
+                "http://52.4.21.225:80",
+                "http://104.41.151.86:80",
+                "http://50.115.194.97:8080",
+                "http://119.40.98.26:8080"
+            ], promises = [], self = this, response, proxy,
             responseStack = {errorStack: [], data:null};
 
             return new Promise(function(resolve, decline) {
 
-                self.getProxies(self.getRandomArbitrary(1,200)).then(function(proxies) {
-                    //proxies = response;
+                self.getProxies(self.getRandomArbitrary(1,2000), true).then(function(response) {
+                    proxies = response;
 
 
                     for(proxy of proxies) {
@@ -260,7 +262,7 @@ var Parser = require('parse5').Parser,
                         ++attempts;
 
                         if(attempts < 3) {
-                            resolve(self.proxy(keyword, attempts));
+                            return self.proxy(keyword, attempts);
                         } else {
                             console.log("PROXY RACE MORE THAN 3 ATTEMPTS! END");
                             decline("STOP GETTING PROXY");
@@ -284,7 +286,7 @@ var Parser = require('parse5').Parser,
 
             });
         },
-        getProxies: function (page) {
+        getProxies: function (page, checked) {
             console.info("GET PROXIES - PAGE: "+page);
             return new Promise(function(resolve, reject) {
 
@@ -292,7 +294,7 @@ var Parser = require('parse5').Parser,
                 var options = {
                     host: "rank.ria.com",
                     port: 10101,
-                    path: "/act?role=mysql&type=proxies&pass=nD54zM1&page="+page+"&limit=5",
+                    path: "/act?role=mysql&type=proxies&pass=nD54zM1&page="+page+"&limit=5&status="+checked,
                     method: 'GET'
                 },
                 raw = "",
