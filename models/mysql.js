@@ -15,7 +15,7 @@ var mysql = require('mysql'),
       },
       proxies: function(params) {
         var self = this, limit = params.limit || 10, page = limit * ((params.page || 1)-1),
-            status = params.status || 1;
+            status = params.status !== undefined ? params.status : 1;
         if(limit > 100) limit = 100;
         return new Promise(function(resolve, decline) {
               proxiesData = self.connect();
