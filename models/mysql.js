@@ -14,7 +14,8 @@ var mysql = require('mysql'),
           });
       },
       proxies: function(params) {
-        var self = this, limit = params.limit || 10, page = limit * ((params.page || 1)-1);
+        var self = this, limit = params.limit || 10, page = limit * ((params.page || 1)-1),
+            status = params.status || 1;
         if(limit > 100) limit = 100;
         return new Promise(function(resolve, decline) {
               proxiesData = self.connect();
@@ -22,7 +23,7 @@ var mysql = require('mysql'),
               proxiesData.then(function(connection) {
 
                   connection.query(
-                      'SELECT * FROM seo_proxy where proxy_status = 1 limit '+page+','+limit,
+                      'SELECT * FROM seo_proxy where proxy_status = '+ status +' limit '+page+','+limit,
                       function(err, row) {
                           if(err) decline(err);
 

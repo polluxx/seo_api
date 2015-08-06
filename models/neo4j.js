@@ -145,7 +145,7 @@ neo4j = {
                 response.then(function(result) {
                     if(result !== null) {
                         resolve(result);
-                        return;
+                        //return;
                     }
 
                     done(result);
@@ -159,8 +159,8 @@ neo4j = {
               //return;
 
               if(resp !== null) {
-                  done(resp);
-                  return;
+                  resolve(resp);
+                  //return;
               }
 
                var options = {
@@ -241,9 +241,10 @@ neo4j = {
         for(link of links) {
             label = link.src.match(/\w+/g).join("");
             // ADD Link node
-            query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON CREATE SET '+label+'.position = '+link.position+' ON MATCH SET '+label+'.position = '+link.position+', '+label+'.updated = timestamp()\r\n';
+            //query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON CREATE SET '+label+'.position = '+link.position+' ON MATCH SET '+label+'.position = '+link.position+', '+label+'.updated = timestamp()\r\n';
+            query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON MATCH SET '+label+'.updated = timestamp()\r\n';
             // ADD connection with Link and Keyword
-            query += 'MERGE ('+label+')-[:TOP10]->(keyword)\r\n';
+            query += 'MERGE ('+label+')-[:TOP10{position:'+link.position+',updated: timestamp()}]-(keyword)\r\n';
         }
         this.cypher(query, null, function(err, response) {
             console.log(err);

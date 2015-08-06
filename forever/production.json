@@ -3,5 +3,6 @@
   "append": true,
   "watch": true,
   "script": "app.js",
-  "sourceDir": "/var/www/seo_api"
+  "sourceDir": "/var/www/seo_api",
+  "command": "iojs"
 }

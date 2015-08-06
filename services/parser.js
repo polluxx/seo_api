@@ -35,7 +35,7 @@ var Parser = require('parse5').Parser,
             proxyPort = (splitted[1] !== undefined) ? splitted[1] : 80;
             console.log(splitted);
             if(path.secure !== undefined && path.secure === true) {
-                proxy = "http://"+proxy;
+                //proxy = "http://"+proxy;
 
                 request = new HttpsProxyAgent(proxy);
             } else {
@@ -136,9 +136,9 @@ var Parser = require('parse5').Parser,
                         port: 443,
                         method: 'GET',
                         path: searchReq,
-                        timeout: 1000,
+                        timeout: 10000,
                         followRedirect: true,
-                        maxRedirects: 10,
+                        maxRedirects: 5,
                         gzip: true,
                         headers: {"Content-Type": "text/plain;charset=utf-8"},
 
@@ -165,7 +165,7 @@ var Parser = require('parse5').Parser,
 
                         if(res.statusCode !== 200) {
                             response.errorStack.push(JSON.stringify(res.headers));
-                            if(response.errorStack.length === 10) decline(response);
+                            if(response.errorStack.length === 5) decline(response);
                             return;
                         };
 
@@ -190,15 +190,17 @@ var Parser = require('parse5').Parser,
 
                             console.log(err);
                             response.errorStack.push(err);
-                            if(response.errorStack.length === 10) decline(response);
+                            if(response.errorStack.length === 5) decline(response);
                         });
                     });
+
+                    //httpsRequest.setTimeout(3000);
 
                     httpsRequest.on('error', function(err) {
                         console.error("ON connection: " + searchReq);
                         response.errorStack.push(err);
 
-                        if(response.errorStack.length === 10) decline(response);
+                        if(response.errorStack.length === 5) decline(response);
                         console.log(err);
                         //decline(err);
                         return;
@@ -212,12 +214,15 @@ var Parser = require('parse5').Parser,
 
 
         },
+        getRandomArbitrary: function(min, max) {
+            return Math.ceil(Math.random() * (max - min) + min);
+        },
         proxy: function(keyword, attempts) {
 
 
             var self = this,
             attempts = attempts || 0,
-            proxies = [
+            /*proxies = [
                 "177.107.97.246:8080",
                 "193.25.120.235:8080",
                 "109.104.144.42:8080",
@@ -230,39 +235,57 @@ var Parser = require('parse5').Parser,
                 "104.41.151.86:80",
                 "50.115.194.97:8080",
                 "119.40.98.26:8080"
-            ], promises = [], self = this, response, proxyTmp,
+            ]*/proxies = [], promises = [], self = this, response, proxy,
             responseStack = {errorStack: [], data:null};
 
             return new Promise(function(resolve, decline) {
 
-                self.getProxies().then(function(response) {
-                    proxies = response;
+                self.getProxies(self.getRandomArbitrary(1,200)).then(function(proxies) {
+                    //proxies = response;
+
+
+                    for(proxy of proxies) {
+                        promises.push(self.grab(keyword, proxy, responseStack));
+                    }
+
+                    Promise.race(promises).then(function(result) {
+
+                        console.log("PROXY RACE STEP");
+                        console.log(result);
+
+                        resolve(result);
+                    },function(err) {
+
+                        console.log("PROXY RACE ERROR - ATTEMPT - "+attempts);
+                        ++attempts;
+
+                        if(attempts < 3) {
+                            resolve(self.proxy(keyword, attempts));
+                        } else {
+                            console.log("PROXY RACE MORE THAN 3 ATTEMPTS! END");
+                            decline("STOP GETTING PROXY");
+                            // LOG
+                        }
+
+                        //console.log(err);
+                        // TODO: log error
+                        //decline(err);
+                    });
+
+                    //console.log(proxies);
                 }).catch(function(err) {
                     decline(err);
                     return;
                 });
 
-                for(proxy of proxies) {
-                    promises.push(self.grab(keyword, proxy, responseStack));
-                }
 
-                response = Promise.race(promises).then(function(result) {
-                    resolve(result);
-                },function(err) {
 
-                  console.log("PROXY RACE ERROR");
-                  ++attempts;
-                  if(attempts < 3) return self.proxy(keyword, attempts);
-                  console.log("PROXY RACE MORE THAN 3 ATTEMPTS! END");
-                  //console.log(err);
-                    // TODO: log error
-                    //decline(err);
-                });
+
 
             });
         },
         getProxies: function (page) {
-
+            console.info("GET PROXIES - PAGE: "+page);
             return new Promise(function(resolve, reject) {
 
                 page = page || 1;
@@ -298,7 +321,7 @@ var Parser = require('parse5').Parser,
                         }
 
                         resolve(result.data.map(function(item) {
-                            return item.proxy_host;
+                            return item.proxy_type + '://' + item.proxy_host;
                         }));
                     });
                 });
