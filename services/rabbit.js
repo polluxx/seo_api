@@ -75,6 +75,10 @@ var rabbit = require('rabbit.js'),
 
                 });
             });
+
+            context.on('error', function(err) {
+                console.error(err);
+            })
             console.info("LISTENING");
         }
     };

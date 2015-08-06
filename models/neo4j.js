@@ -65,11 +65,16 @@ neo4j = {
                 if(args.target === undefined) reject("Error: target param is not provided");
 
                 self.domainKeywords(args.target).then(function(response) {
+                  console.log(response);
                     if(response.errors.length) reject(response.errors);
 
                     if(response.results[0] === undefined) {
                         reject("Empty response");
                         return;
+                    }
+
+                    if(!response.results[0].data.length) {
+                        done(null);
                     }
 
                     resolve(response.results[0].data.map(function(item) {
@@ -267,7 +272,7 @@ neo4j = {
                });
                request.on('error', function (e) {
                    //console.log('problem with request: ' + e.message);
-                   done({"error": e.message, "raw": e, data: null});
+                   reject({"error": e.message, "raw": e, data: null});
                });
 
                request.end();
@@ -281,7 +286,6 @@ neo4j = {
 
             self.findDomainKeywords({target: link}).then(function(response) {
                 if(!response) return;
-
                 self.promiseKeywords(response, resolve, reject, true);
             }).catch(function(err) {
                 reject(err);
