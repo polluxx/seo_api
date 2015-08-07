@@ -7,12 +7,10 @@ var Prodvigator = require('./services/prodvigator'),
     rabbit = require('./services/rabbit'),
     mysql = require('./models/mysql.js'),
     neo4j = require('./models/neo4j.js'),
-    co = require('co');
-
-//logic
-
-
-    require('seneca')({
+    cors = require('cors'),
+    co = require('co'),
+    app = require('express')(),
+    seneca = require('seneca')({
         transport:{
             web:{
                 timeout:20000
@@ -86,11 +84,13 @@ var Prodvigator = require('./services/prodvigator'),
             done(true, {error: 'argument target isn\'t an instance of String'});
         }
 
+            args.target = decodeURIComponent(args.target);
+
         var data = neo4j.findDomainKeywords(args);
         co(data).then(function (value) {
-            done(null, {args: args, data:value});
+            done(null, {data:value});
         }, function (err) {
-            done(null, {args: args, data:null, error: err.stack || err});
+            done(null, {data:null, error: err.stack || err});
         });
     })
 
@@ -124,6 +124,43 @@ var Prodvigator = require('./services/prodvigator'),
         rabbit.sub();
         done(null, {message: "LISTENING"});
     })
-    .act({role: 'rabbit', type: 'sub'})
+
+
+    .act('role:web',{use:{
+
+        // define some routes that start with /my-api
+        prefix: '/api',
+
+        // use action patterns where role has the value 'api' and cmd has some defined value
+        pin: {role:'check',type:'*'},
+
+        // for each value of cmd, match some HTTP method, and use the
+        // query parameters as values for the action
+        map:{
+            top100: true,                // GET is the default
+            concurrents: {GET:true}        // explicitly accepting GETs
+            //qaz: {GET:true,POST:true} // accepting both GETs and POSTs
+        }
+    }})
+
+    .act({role: 'rabbit', type: 'sub'});
     //.add( { generate:'id', type:'nid'}, id.nid )
-    .listen({timeout:22000});
+    //.listen({timeout:22000});
+
+    var whitelist = ['http://cm.ria.local:8000', 'http://seo.ria.com', 'http://cm.ria.com'],
+    corsOptionsDelegate = function(req, callback){
+        var corsOptions;
+        if(whitelist.indexOf(req.header('Origin')) !== -1){
+            corsOptions = { origin: true, credentials: true }; // reflect (enable) the requested origin in the CORS response
+        }else{
+            corsOptions = { origin: false }; // disable CORS for this request
+        }
+        callback(null, corsOptions); // callback expects two parameters: error and options
+    };
+
+    app.use(cors(corsOptionsDelegate));
+    app.use( require("body-parser").json());
+    app.use( seneca.export('web') );
+
+
+    app.listen(3000);

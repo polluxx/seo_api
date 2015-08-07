@@ -56,7 +56,7 @@ neo4j = {
 
     },
     findDomainKeywords: function(args) {
-        var self = this;
+        var self = this, resultData = {items:null, total:0};
         return new Promise(function(resolve, reject) {
             ASQ(function(done) {
 
@@ -64,8 +64,8 @@ neo4j = {
 
                 if(args.target === undefined) reject("Error: target param is not provided");
 
-                self.domainKeywords(args.target).then(function(response) {
-                  console.log(response);
+                self.domainKeywords(args.target, args).then(function(response) {
+                    console.log(response);
                     if(response.errors.length) reject(response.errors);
 
                     if(response.results[0] === undefined) {
@@ -77,9 +77,15 @@ neo4j = {
                         done(null);
                     }
 
-                    resolve(response.results[0].data.map(function(item) {
-                        return item.row[0].src;
-                    }));
+                    self.domainKeywords(args.target, args, true).then(function(response) {
+                        resultData.total = response.results[0].data[0].row[0];
+                        resolve(resultData);
+                    });
+
+                    resultData.items = response.results[0].data.map(function(item) {
+                        return item.row[0];
+                    });
+
                 }).catch(function(err) {
                     reject(err);
                     return;
@@ -152,8 +158,8 @@ neo4j = {
                     self.domainConcurrents(args.target).then(function(response) {
                         if(response.errors.length) reject(response.errors);
 
-                        if(response.results[0] === undefined) {
-                            reject("Empty response");
+                        if(response.results[0] === undefined || !response.results[0].data.length) {
+                            reject("Empty response from DB. Try to aggregate data.");
                             return;
                         }
 
@@ -329,7 +335,11 @@ neo4j = {
 
             if(~unique.indexOf(label)) continue;
             unique.push(label);
-            query += 'MERGE ('+label+':Keyword {src:"'+decodeURI(keyword.keyword)+'"}) \r\n ON MATCH SET '+label+'.updated = timestamp()\r\n';
+            query += 'MERGE ('+label+':Keyword {src:"'+decodeURI(keyword.keyword)+'"}) \r\n ' +
+            'ON CREATE SET '+label+'.queriesCount = '+keyword.region_queries_count+',' +
+            label+'.position = '+keyword.position+' \r\n ' +
+            'ON MATCH SET '+label+'.updated = timestamp(),' +
+            label+'.position = '+keyword.position+' \r\n';
 
             // ADD connection with Link and Keyword
             query += 'MERGE (domain)-[:CONTAINS]->('+label+')\r\n';
@@ -361,8 +371,26 @@ neo4j = {
         });
 
     },
-    domainKeywords: function(link) {
-        var query = "MATCH (n:Link)-[r:CONTAINS]->(keyword) WHERE n.src = '"+link+"' RETURN keyword";
+    domainKeywords: function(link, additional, isCount) {
+        var order = "ASC", orderby = "position", limit = "", index;
+        if(additional !== undefined) {
+            if(additional.sorting !== undefined) {
+                for(index in additional.sorting) {
+                    orderby = index;
+                    order = additional.sorting[index];
+                }
+            }
+            if(additional.count !== undefined) {
+                limit = " LIMIT " + additional.count;
+            }
+            if(additional.page !== undefined && additional.page > 1) {
+
+                limit = " SKIP " + (additional.page-1) * (additional.count || 10) + limit;
+            }
+        }
+        var querySlice = (isCount === undefined) ? "keyword ORDER BY keyword."+orderby+" "+order+" "+limit : "COUNT(DISTINCT keyword) as total",
+            query = "MATCH (n:Link)-[:CONTAINS]->(keyword) WHERE n.src = '"+link+"' RETURN " + querySlice;
+        //console.log(query);
         return this.request(query);
     },
     domainConcurrents: function(link) {
