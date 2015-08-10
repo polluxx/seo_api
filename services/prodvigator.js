@@ -159,6 +159,7 @@ var http = require('http'),
         //yield new Promise( function (done,reject) {
 
             reqParams.page = page;
+
             //var stepReq = ;
             //stepReq.next();
             return ASQ( function(done){
@@ -173,9 +174,13 @@ var http = require('http'),
                 .val(makeResponse);
 
             function makeResponse(promised) {
+
                 response.error = promised.error || response.error || null;
                 if(promised.data && promised.data instanceof Array) response.items = (response.items !== undefined) ? response.items.concat(promised.data) : promised.data;
                 response.left = promised.left || response.left || null;
+
+                if(response.items === undefined) done = true;
+
                 return response;
             }
 

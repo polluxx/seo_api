@@ -95,47 +95,37 @@ neo4j = {
             })
             .then(function(done, keywords) {
 
-                reject("Data is not ready yet");
-                var options = {
-                        host: "localhost",
-                        port: 10101,
-                        path: '/act?role=aggregate&type=top&link='+args.target,
-                        method: 'GET'
-                    },
-                    raw = "",
-                    items = [],
-                    request = http.request(options, function (resp) {
-                        if(resp.statusCode !== 200) {
-                            reject(resp);
-                            return;
-                        }
-                        resp.setEncoding('utf8');
+                    var options = {
+                            host: "localhost",
+                            port: 3000,
+                            path: '/rabbit/pub?message={"role":"publish","type":"top100","target":"'+args.target+'"}',
+                            method: 'GET'
+                        },
 
-                        resp.setTimeout(3000);
-                        resp.on('data', function (chunk) {
-                            raw += chunk;
-                        });
+                        request = http.request(options, function (resp) {
+                            //console.log(resp.data);
 
-                        resp.on("end", function(resp) {
-                            var result = JSON.parse(raw);
 
-                            if(result.data === undefined || result.data[0] === undefined) {
-                                reject("empty response");
+                            console.log('STATUS: ' + resp.statusCode);
+                            if (resp.statusCode !== 200) {
+                                reject(resp);
                                 return;
                             }
 
-                            items = result.data[0].items;
-
-                            self.publishKeywords(items);
-                            //console.log(items);
+                            resolve("Data set to queue");
                         });
-                    });
-                request.on('error', function (e) {
-                    //console.log('problem with request: ' + e.message);
-                    reject({"error": e.message, "raw": e, data: null});
-                });
 
-                request.end();
+                        request.on('error', function(err) {
+                            //console.log(err);
+                            reject(err);
+                        });
+
+                        request.write('');
+                        request.end();
+
+                    console.log("ON REQ");
+                    console.log(options);
+
             });
         });
     },
@@ -284,6 +274,61 @@ neo4j = {
                request.end();
 
             });
+        });
+    },
+    publishTop100: function(link) {
+        var self = this;
+
+
+        return new Promise(function(resolve, reject) {
+            var options = {
+                    host: "localhost",
+                    port: 10101,
+                    path: '/act?role=aggregate&type=top&link='+link,
+                    method: 'GET'
+                },
+                raw = "",
+                items = [],
+                request = http.request(options, function (resp) {
+                    //console.log(resp);
+                    if(resp.statusCode !== 200) {
+                        reject(resp);
+                        return;
+                    }
+                    resp.setEncoding('utf8');
+
+                    resp.setTimeout(3000);
+                    resp.on('data', function (chunk) {
+                        raw += chunk;
+                    });
+
+                    resp.on("end", function(resp) {
+                        var result = JSON.parse(raw);
+
+                        if(result.data === undefined || result.data[0] === undefined) {
+                            reject("empty response");
+                            return;
+                        }
+
+                        if(result.data[0].error !== undefined) {
+                            reject(result.data[0].error);
+                            return;
+                        }
+
+                        items = result.data[0].items;
+                        console.log("END new check");
+                        resolve(self.publishKeywords(items));
+                        //console.log(items);
+                        //resolve("Data received");
+                    });
+                });
+            request.on('error', function (e) {
+                console.log(e);
+                //console.log('problem with request: ' + e.message);
+                reject({"error": e.message, "raw": e, data: null});
+            });
+
+            request.end();
         });
     },
     publishConcurrents: function(link) {

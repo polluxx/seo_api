@@ -25,6 +25,7 @@
     "express": "^4.13.3",
     "mysql": "^2.8.0",
     "parse5": "^1.5.0",
+    "querystring": "^0.2.0",
     "rabbit.js": "^0.4.4",
     "seneca": "^0.6.2",
     "transliteration.cyr": "^1.0.5"

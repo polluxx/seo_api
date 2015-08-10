@@ -95,6 +95,14 @@ var Prodvigator = require('./services/prodvigator'),
     })
 
     // PUBLISH
+    .add({role: 'publish', type: 'top100'}, function(args, done) {
+        if(args.target !== undefined && !args.target instanceof String) {
+            done(true, {error: 'argument target isn\'t an instance of String'});
+        }
+
+        neo4j.publishTop100(args.target);
+        done(null, {args: args, data:null});
+    })
     .add({role: 'publish', type: 'concurrents'}, function(args, done) {
         if(args.target !== undefined && !args.target instanceof String) {
             done(true, {error: 'argument target isn\'t an instance of String'});
@@ -142,10 +150,24 @@ var Prodvigator = require('./services/prodvigator'),
             //qaz: {GET:true,POST:true} // accepting both GETs and POSTs
         }
     }})
+    .act('role:web',{use:{
 
-    .act({role: 'rabbit', type: 'sub'});
+        // define some routes that start with /my-api
+        prefix: '/rabbit',
+
+        // use action patterns where role has the value 'api' and cmd has some defined value
+        pin: {role:'rabbit',type:'*'},
+
+        // for each value of cmd, match some HTTP method, and use the
+        // query parameters as values for the action
+        map:{
+            pub: {GET: true}                // GET is the default
+        }
+    }})
+
+    .act({role: 'rabbit', type: 'sub'})
     //.add( { generate:'id', type:'nid'}, id.nid )
-    //.listen({timeout:22000});
+    .listen({timeout:22000});
 
     var whitelist = ['http://cm.ria.local:8000', 'http://seo.ria.com', 'http://cm.ria.com'],
     corsOptionsDelegate = function(req, callback){
