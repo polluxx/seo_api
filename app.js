@@ -79,6 +79,18 @@ var Prodvigator = require('./services/prodvigator'),
             done(null, {args: args, data:null, error: err.stack || err});
         });
     })
+    .add({role: 'check', type: 'concurrent-keys'}, function(args, done) {
+        if(args.target !== undefined && !args.target instanceof String) {
+            done(true, {error: 'argument target isn\'t an instance of String'});
+        }
+
+        var data = neo4j.findKeywordsLinks(args);
+        co(data).then(function (value) {
+            done(null, {args: args, data:value});
+        }, function (err) {
+            done(null, {args: args, data:null, error: err.stack || err});
+        });
+    })
     .add({role: 'check', type: 'top100'}, function(args, done) {
         if(args.target !== undefined && !args.target instanceof String) {
             done(true, {error: 'argument target isn\'t an instance of String'});
