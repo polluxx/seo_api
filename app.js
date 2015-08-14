@@ -93,6 +93,14 @@ var Prodvigator = require('./services/prodvigator'),
             done(null, {data:null, error: err.stack || err});
         });
     })
+    .add({role: 'check', type: 'count'}, function(args, done) {
+        var data = Prodvigator.getRequestsCount(args);
+        co(data).then(function (value) {
+            done(null, {data:value});
+        }, function (err) {
+            done(null, {data:null, error: err.stack || err});
+        });
+    })
 
     // PUBLISH
     .add({role: 'publish', type: 'top100'}, function(args, done) {
@@ -146,7 +154,8 @@ var Prodvigator = require('./services/prodvigator'),
         // query parameters as values for the action
         map:{
             top100: true,                // GET is the default
-            concurrents: {GET:true}        // explicitly accepting GETs
+            concurrents: {GET:true},        // explicitly accepting GETs
+            count: {GET:true}
             //qaz: {GET:true,POST:true} // accepting both GETs and POSTs
         }
     }})

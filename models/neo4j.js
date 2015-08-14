@@ -74,7 +74,8 @@ neo4j = {
                     }
 
                     if(!response.results[0].data.length) {
-                        done(null);
+                        reject("По данной ссылке ключей не найдено");
+                        return;
                     }
 
                     self.domainKeywords(args.target, args, true).then(function(response) {
@@ -113,6 +114,7 @@ neo4j = {
                             }
 
                             resolve("Data set to queue");
+
                         });
 
                         request.on('error', function(err) {
@@ -305,19 +307,26 @@ neo4j = {
                     resp.on("end", function(resp) {
                         var result = JSON.parse(raw);
 
+
+                        console.log("START new check");
+
+
                         if(result.data === undefined || result.data[0] === undefined) {
                             reject("empty response");
                             return;
                         }
 
-                        if(result.data[0].error !== undefined) {
+                        if(result.data[0].error !== undefined && !result.data[0].items.length) {
+
+                            // #todo LOGING
                             reject(result.data[0].error);
                             return;
                         }
 
                         items = result.data[0].items;
+
                         console.log("END new check");
-                        resolve(self.publishKeywords(items));
+                        resolve(self.publishKeywords(items[1]));
                         //console.log(items);
                         //resolve("Data received");
                     });
@@ -371,7 +380,7 @@ neo4j = {
     },
     publishKeywords: function(keywords){
         console.log(" -- PUBLISH LINKS FROM PRO -- ");
-        var keyword, query = "", domain = keywords[0].url, label = "", unique = [];
+        var keyword, query = "", domain = keywords[0].url, label = "", unique = [], translit = "";
 
         query += 'MERGE (domain:Link {src:"'+domain+'"}) ON MATCH SET domain.updated = timestamp()\r\n';
 

@@ -7,9 +7,10 @@ var http = require('http'),
     params: {
         host: "prodvigator.ua",
         methods: {
-          keywordsByUrl: "/api/v2/url_keywords",
-          concurents: "/api/v2/keyword_top",
-          related: "/api/v2/related_keywords"
+          keywordsByUrl: "/api/v3/url_keywords",
+          concurents: "/api/v3/keyword_top",
+          related: "/api/v3/related_keywords",
+          count: "/api/v3/stats"
         },
         rest: {
           page: 1,
@@ -338,6 +339,20 @@ console.log( item );
             }
         });
         return findedIndex;
+    },
+    getRequestsCount: function() {
+        var self = this;
+        return new Promise(function(resolve, reject) {
+            self.request({method: self.params.methods.count})
+                .val( function(result, msg){
+                    //console.log( result ); // success, all done!
+                    resolve(result);
+                })
+                .or( function(err) {
+                    console.log( err );
+                    reject("Error: " + JSON.stringify(err));
+                } );
+        });
     },
     generic: null,
     itemsList: {}
