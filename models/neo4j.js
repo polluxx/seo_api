@@ -425,26 +425,33 @@ neo4j = {
         });
 
     },
-    domainKeywords: function(link, additional, isCount) {
-        var order = "ASC", orderby = "position", limit = "", index;
-        if(additional !== undefined) {
-            if(additional.sorting !== undefined) {
-                for(index in additional.sorting) {
-                    orderby = index;
-                    order = additional.sorting[index];
-                }
-            }
-            if(additional.count !== undefined) {
-                limit = " LIMIT " + additional.count;
-            }
-            if(additional.page !== undefined && additional.page > 1) {
+    buildPaginator: function(link, additional, isCount) {
+      var order = "ASC", orderby = "position", limit = "", index;
+      if(additional !== undefined) {
+          if(additional.sorting !== undefined) {
+              for(index in additional.sorting) {
+                  orderby = index;
+                  order = additional.sorting[index];
+              }
+          }
+          if(additional.count !== undefined) {
+              limit = " LIMIT " + additional.count;
+          }
+          if(additional.page !== undefined && additional.page > 1) {
 
-                limit = " SKIP " + (additional.page-1) * (additional.count || 10) + limit;
-            }
-        }
-        var querySlice = (isCount === undefined) ? "keyword ORDER BY keyword."+orderby+" "+order+" "+limit : "COUNT(DISTINCT keyword) as total",
-            query = "MATCH (n:Link)-[:CONTAINS]->(keyword) WHERE n.src = '"+link+"' RETURN " + querySlice;
+              limit = " SKIP " + (additional.page-1) * (additional.count || 10) + limit;
+          }
+      }
+      return (isCount === undefined) ? "keyword ORDER BY keyword."+orderby+" "+order+" "+limit : "COUNT(DISTINCT keyword) as total";
+
+    },
+    domainKeywords: function(link, additional, isCount) {
+        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword) WHERE n.src = '"+link+"' RETURN " + this.buildPaginator(link, additional, isCount);
         //console.log(query);
+        return this.request(query);
+    },
+    concurrentKeywords: function(target) {
+        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword) WHERE n.src = '"+link+"' RETURN " + this.buildPaginator(link, additional, isCount);
         return this.request(query);
     },
     domainConcurrents: function(link) {
