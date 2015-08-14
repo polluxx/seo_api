@@ -3,13 +3,13 @@
 var http = require("http"),
 r = require("request"),
 transliteration = require('transliteration.cyr'),
-crypto = require("crypto"),
+//crypto = require("crypto"),
 config = require('../config.js'),
 ASQ = require('asynquence'),
 neo4j = {
     params: {
-        url: "http://localhost:7474/db/data/transaction/commit",
-        auth: "http://localhost:7474/user/neo4j"
+        url: "http://"+config.dbs.neo4j.host+":7474/db/data/transaction/commit",
+        auth: "http://"+config.dbs.neo4j.host+":7474/user/neo4j"
     },
     auth: function() {
       var self = this,
@@ -97,39 +97,39 @@ neo4j = {
             .then(function(done, keywords) {
 
                     var options = {
-                            host: "localhost",
+                            host: config.api,
                             port: 3000,
                             path: '/rabbit/pub?message={"role":"publish","type":"top100","target":"'+args.target+'"}',
                             method: 'GET'
-                        },
-
-                        request = http.request(options, function (resp) {
-                            //console.log(resp.data);
-
-
-                            console.log('STATUS: ' + resp.statusCode);
-                            if (resp.statusCode !== 200) {
-                                reject(resp);
-                                return;
-                            }
-
-                            resolve("Data set to queue");
-
-                        });
-
-                        request.on('error', function(err) {
-                            //console.log(err);
-                            reject(err);
-                        });
-
-                        request.write('');
-                        request.end();
-
-                    console.log("ON REQ");
-                    console.log(options);
-
+                        };
+                    self.makeReq(options, resolve, reject);
             });
         });
+    },
+    makeReq: function(queryParams, resolve, reject) {
+        var request = http.request(queryParams, function (resp) {
+
+
+            console.log('STATUS: ' + resp.statusCode);
+            if (resp.statusCode !== 200) {
+                reject(resp);
+                return;
+            }
+
+            resolve("Data set to queue");
+
+        });
+
+        request.on('error', function(err) {
+            //console.log(err);
+            reject(err);
+        });
+
+        request.write('');
+        request.end();
+
+        console.log("ON REQ");
+        console.log(queryParams);
     },
     findKeywordsLinks: function(args) {
         var self = this, keywords = [], unique = [], row;
@@ -151,6 +151,21 @@ neo4j = {
                         if(response.errors.length) reject(response.errors);
 
                         if(response.results[0] === undefined || !response.results[0].data.length) {
+
+
+                            if(args.newCheck !== undefined) {
+                                //self.publishConcurrents(args.target);
+
+                                var options = {
+                                    host: config.api,
+                                    port: 3000,
+                                    path: '/rabbit/pub?message={"role":"publish","type":"concurrents","target":"'+args.target+'"}',
+                                    method: 'GET'
+                                };
+                                self.makeReq(options, resolve, reject);
+                                return;
+                            }
+
                             reject("Empty response from DB. Try to aggregate data.");
                             return;
                         }
@@ -236,7 +251,7 @@ neo4j = {
               }
 
                var options = {
-                   host: "localhost",
+                   host: config.api,
                    port: 10101,
                    path: '/act?role=parse&type=concurrents&keyword='+encodeURI(keyword)+'&encoded=true',
                    method: 'GET'
@@ -284,7 +299,7 @@ neo4j = {
 
         return new Promise(function(resolve, reject) {
             var options = {
-                    host: "localhost",
+                    host: config.api,
                     port: 10101,
                     path: '/act?role=aggregate&type=top&link='+link,
                     method: 'GET'
@@ -341,12 +356,21 @@ neo4j = {
         });
     },
     publishConcurrents: function(link) {
-        var self = this;
+        var self = this, keywords = [];
         return new Promise(function(resolve, reject) {
 
             self.findDomainKeywords({target: link}).then(function(response) {
-                if(!response) return;
-                self.promiseKeywords(response, resolve, reject, true);
+
+                if(!response || !response.items || !response.items.length) return;
+
+
+                keywords =  response.items.map(function(item) {
+                    return item.src;
+                });
+
+                if(!keywords.length) reject("keywords map error!");
+
+                self.promiseKeywords(keywords, resolve, reject, true);
             }).catch(function(err) {
                 reject(err);
             });
@@ -442,7 +466,7 @@ neo4j = {
               limit = " SKIP " + (additional.page-1) * (additional.count || 10) + limit;
           }
       }
-      return (isCount === undefined) ? "keyword ORDER BY keyword."+orderby+" "+order+" "+limit : "COUNT(DISTINCT keyword) as total";
+      return (isCount === undefined) ? "keyword, LABELS(keyword), LABELS(n) ORDER BY keyword."+orderby+" "+order+" "+limit : "COUNT(DISTINCT keyword) as total";
 
     },
     domainKeywords: function(link, additional, isCount) {

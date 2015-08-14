@@ -113,6 +113,15 @@ var Prodvigator = require('./services/prodvigator'),
             done(null, {data:null, error: err.stack || err});
         });
     })
+    .add({role: 'check', type: 'query'}, function(args, done) {
+        if(args.query === undefined || !args.query instanceof String) {
+            done(true, {error: 'argument isn\'t an instance of String or empty'});
+        }
+
+        neo4j.cypher(args.query, null, function(err, response) {
+            done(err, response);
+        });
+    })
 
     // PUBLISH
     .add({role: 'publish', type: 'top100'}, function(args, done) {
@@ -127,6 +136,10 @@ var Prodvigator = require('./services/prodvigator'),
         if(args.target !== undefined && !args.target instanceof String) {
             done(true, {error: 'argument target isn\'t an instance of String'});
         }
+
+            console.log("PUBLISH CONCURR");
+            console.log(args.target);
+            console.log('---------------------------');
 
         neo4j.publishConcurrents(args.target);
         done(null, {args: args, data:null});
@@ -167,7 +180,8 @@ var Prodvigator = require('./services/prodvigator'),
         map:{
             top100: true,                // GET is the default
             concurrents: {GET:true},        // explicitly accepting GETs
-            count: {GET:true}
+            count: {GET:true},
+            query: {PUT:true, OPTIONS: true}
             //qaz: {GET:true,POST:true} // accepting both GETs and POSTs
         }
     }})
