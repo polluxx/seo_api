@@ -3,6 +3,7 @@ var Parser = require('parse5').Parser,
     Http = require('http'),
     mysql = require('../models/mysql.js'),
     antigate = require('./anti-gate.js'),
+    config = require('../config.js'),
     neo4j = require('../models/neo4j.js'),
     HttpsProxyAgent = require('https-proxy-agent'),
     parser = {
@@ -261,7 +262,7 @@ var Parser = require('parse5').Parser,
                         console.log("PROXY RACE ERROR - ATTEMPT - "+attempts);
                         ++attempts;
 
-                        if(attempts < 3) {
+                        if(attempts < config.parser.maxAttempts) {
                             return self.proxy(keyword, attempts);
                         } else {
                             console.log("PROXY RACE MORE THAN 3 ATTEMPTS! END");
