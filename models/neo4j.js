@@ -131,14 +131,26 @@ neo4j = {
         console.log("ON REQ");
         console.log(queryParams);
     },
+    getKeywordsOwnProp: function (keywords) {
+        if(keywords === undefined) return undefined;
+
+        var keyword, result = [];
+        for(keyword in keywords) {
+            if(!keywords.hasOwnProperty(keyword)) continue;
+
+            result.push(keywords[keyword]);
+        }
+        return result;
+    },
     findKeywordsLinks: function(args) {
         var self = this, keywords = [], unique = [], row, result = {};
         return new Promise(function(resolve, reject) {
 
             ASQ(function(done) {
                   keywords = args.keywords;
+
                     if(keywords !== undefined) {
-                        done(keywords);
+                        done(self.getKeywordsOwnProp(keywords));
                         return;
                     }
 
@@ -172,12 +184,12 @@ neo4j = {
 
                         result.data = response.results[0].data.reduce(function(prev, next, index) {
 
-                            row = decodeURI(next.row[0].src);
+                            row = decodeURIComponent(next.row[0].src);
                             if(index > 1) unique = prev;
                             if(!~unique.indexOf(row)) unique.push(row);
 
                             if(index === 1) {
-                                row = decodeURI(prev.row[0].src);
+                                row = decodeURIComponent(prev.row[0].src);
                                 if(!~unique.indexOf(row)) unique.push(row);
                             }
 
@@ -195,7 +207,8 @@ neo4j = {
               })
               //.promise()
               .then(function (done, keywords) {
-
+                    console.info('START CHECKING BY KEYWORDS');
+                    console.info(args.keywords);
                   reject("Concurrents in process");
                   self.promiseKeywords(keywords, resolve, reject);
               })
@@ -203,8 +216,10 @@ neo4j = {
     },
     promiseKeywords: function(keywords, resolve, reject, newCheck) {
 
+
         var promises = [], keyword, linkFunct;
         for(keyword of keywords) {
+            keyword = decodeURI(keyword);
             linkFunct = this.checkKeywordsLinks(keyword, 100, newCheck);
             promises.push(linkFunct);
         }
@@ -247,6 +262,7 @@ neo4j = {
             then(function(_, resp) {
               console.log(resp);
               //return;
+                    console.info('START CHECKING BY KEYWORDS');
 
               if(resp !== null) {
                   resolve(resp);
@@ -482,7 +498,7 @@ neo4j = {
         return this.request(query);
     },
     domainConcurrents: function(link) {
-        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' RETURN r";
+        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' RETURN DISTINCT r";
         return this.request(query);
     },
     concurrentsProcessed: function(link) {
