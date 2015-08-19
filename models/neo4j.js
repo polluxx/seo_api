@@ -132,7 +132,7 @@ neo4j = {
         console.log(queryParams);
     },
     findKeywordsLinks: function(args) {
-        var self = this, keywords = [], unique = [], row;
+        var self = this, keywords = [], unique = [], row, result = {};
         return new Promise(function(resolve, reject) {
 
             ASQ(function(done) {
@@ -170,7 +170,7 @@ neo4j = {
                             return;
                         }
 
-                        resolve(response.results[0].data.reduce(function(prev, next, index) {
+                        result.data = response.results[0].data.reduce(function(prev, next, index) {
 
                             row = decodeURI(next.row[0].src);
                             if(index > 1) unique = prev;
@@ -182,7 +182,10 @@ neo4j = {
                             }
 
                             return unique;
-                        }));
+                        });
+
+                        result.total = result.data.length;
+                        resolve(result);
                     }).catch(function(err) {
                         reject(err);
                         return;
@@ -331,7 +334,7 @@ neo4j = {
                             return;
                         }
 
-                        if(result.data[0].error !== undefined && !result.data[0].items.length) {
+                        if(result.data[0].error !== undefined && result.data[0].items === undefined || !result.data[0].items.length) {
 
                             // #todo LOGING
                             reject(result.data[0].error);
@@ -480,6 +483,10 @@ neo4j = {
     },
     domainConcurrents: function(link) {
         var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' RETURN r";
+        return this.request(query);
+    },
+    concurrentsProcessed: function(link) {
+        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' OPTIONAL MATCH (n:Link)-[:CONTAINS]->(k)  WHERE n.src = '"+link+"' RETURN COUNT(DISTINCT keyword) as c, COUNT(DISTINCT k) as t";
         return this.request(query);
     },
     request: function(query) {

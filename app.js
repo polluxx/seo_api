@@ -71,7 +71,7 @@ var Prodvigator = require('./services/prodvigator'),
         if(args.keywords !== undefined && !args.keywords instanceof Array) {
             done(true, {error: 'argument keywords isn\'t an instance of Array'});
         }
-
+        if(args.target !== undefined) args.target = decodeURIComponent(args.target);
         var data = neo4j.findKeywordsLinks(args);
         co(data).then(function (value) {
             done(null, {args: args, data:value});
@@ -83,6 +83,8 @@ var Prodvigator = require('./services/prodvigator'),
         if(args.target !== undefined && !args.target instanceof String) {
             done(true, {error: 'argument target isn\'t an instance of String'});
         }
+
+        if(args.target !== undefined) args.target = decodeURIComponent(args.target);
 
         var data = neo4j.findKeywordsLinks(args);
         co(data).then(function (value) {

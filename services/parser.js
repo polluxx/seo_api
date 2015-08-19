@@ -73,6 +73,10 @@ var Parser = require('parse5').Parser,
             for(i=0; i<length; i++)
             {
                 item = items[i];
+                if(item.childNodes[0].childNodes[0].attrs[0] === undefined) {
+                    console.error(item.childNodes[0].childNodes[0].attrs);
+                    continue;
+                }
                 link = item.childNodes[0].childNodes[0].attrs[0].value;
                 index = i+1;
 
