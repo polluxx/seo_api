@@ -312,6 +312,39 @@ neo4j = {
             });
         });
     },
+    checkSynopsis: function(args) {
+        var self = this, promises = [], keyword;
+
+        return new Promise(function(resolve, reject) {
+            ASQ(function(done) {
+                // #// TODO: make req
+                var keywords = args.keywords;
+                done(keywords);
+            })
+            .then(function(err, keywords) {
+                if(keywords === undefined || !keywords instanceof Array) {
+                    reject("keywords is not defined or isnt an instance oe the array!");
+                    return;
+                }
+
+                resolve("Data is on it way");
+
+                for(keyword of keywords) {
+                    promises.push(self.publishSyno(keyword, resolve, reject));
+                }
+
+                Promise.all(promises)
+                    .then(function(response) {
+                        console.log(response);
+
+                        console.log("SYNO KEYWORD ACKNOWLEDGED");
+                    })
+                    .catch(function(err) {
+                        console.error(err);
+                    });
+            });
+        });
+    },
     publishTop100: function(link) {
         var self = this;
 
@@ -421,6 +454,47 @@ neo4j = {
                 console.error(err);
             });
     },
+    publishSyno: function(keyword, resolve, reject) {
+        var options = {
+            host: config.api,
+            port: 10101,
+            path: '/act?role=parse&type=syno&keyword='+encodeURI(keyword)+'&encoded=true',
+            method: 'GET'
+        },
+        raw = "",
+        request = http.request(options, function (resp) {
+            console.log('STATUS: ' + resp.statusCode);
+            if(resp.statusCode !== 200) {
+               reject(resp);
+               return;
+            }
+
+            resp.setEncoding('utf8');
+            resp.on('data', function (chunk) {
+                raw += chunk;
+            });
+
+            resp.on("end", function(resp) {
+                var result = JSON.parse(raw);
+
+                if(result.data === undefined) {
+                   reject("empty response");
+                   return;
+                }
+
+                resolve(result.data.data);
+
+            });
+        });
+        request.on('error', function (e) {
+            //console.log('problem with request: ' + e.message);
+            reject({"error": e.message, "raw": e, data: null});
+        });
+
+        request.end();
+    },
+
+    // to DB
     publishKeywords: function(keywords){
         console.log(" -- PUBLISH LINKS FROM PRO -- ");
         var keyword, query = "", domain = keywords[0].url, label = "", unique = [], translit = "";

@@ -120,13 +120,13 @@ var Parser = require('parse5').Parser,
                 return resp;
             }
         },
-        grab: function (keyword, proxy, response) {
+        grab: function (keyword, proxy, response, isYandex) {
             var self = this;
 
             keyword = encodeURI(keyword);
 
             return new Promise(function(resolve, decline) {
-                var destination = self.params.destination.google,
+                var destination = isYandex === undefined ? self.params.destination.google : self.params.destination.yandex,
                     searchReq = destination.method + keyword,
                     httpsRequest, chunked = "",
 
@@ -158,15 +158,15 @@ var Parser = require('parse5').Parser,
                         console.log("statusCode: ", res.statusCode);
                         console.log("headers: ", res.headers);
 
-                        if(res.statusCode === 302) {
+                        if(res.statusCode === 302 && isYandex) {
                             // make data check
-                            /*var resultChecking  = antigate.process(res.headers.location);
+                            var resultChecking  = antigate.process(res.headers.location);
                             resultChecking.then(function(checked) {
                                   console.log("on CAPTCHA: ", checked);
                             }).
                             catch(function(err) {
                                 console.log("on CAPTCHA ERROR: ", err);
-                            })*/
+                            })
 
                         }
 
@@ -224,7 +224,7 @@ var Parser = require('parse5').Parser,
         getRandomArbitrary: function(min, max) {
             return Math.ceil(Math.random() * (max - min) + min);
         },
-        proxy: function(keyword, attempts) {
+        proxy: function(keyword, attempts, isYandex) {
 
 
             var self = this,
@@ -241,18 +241,29 @@ var Parser = require('parse5').Parser,
                 "http://52.4.21.225:80",
                 "http://104.41.151.86:80",
                 "http://50.115.194.97:8080",
-                "http://119.40.98.26:8080"
+                "http://119.40.98.26:8080",
+                "86.96.229.68:8088",
+                "86.96.229.123:8088",
+                "86.96.229.123:80",
+                "86.96.229.68:80",
+                "86.96.229.123:8888",
+                "54.251.177.20:80",
+                "193.2.156.20:80",
+                "185.26.181.241:80",
+                "203.174.44.26:80",
+                "69.59.153.180:80",
+                "82.145.210.160:80"
             ], promises = [], self = this, response, proxy,
             responseStack = {errorStack: [], data:null};
 
             return new Promise(function(resolve, decline) {
 
-                self.getProxies(self.getRandomArbitrary(1,2000), true).then(function(response) {
-                    proxies = response;
+                //self.getProxies(self.getRandomArbitrary(1,2000), true).then(function(response) {
+                    //proxies = response;
 
 
                     for(proxy of proxies) {
-                        promises.push(self.grab(keyword, proxy, responseStack));
+                        promises.push(self.grab(keyword, proxy, responseStack, isYandex));
                     }
 
                     Promise.race(promises).then(function(result) {
@@ -267,7 +278,7 @@ var Parser = require('parse5').Parser,
                         ++attempts;
 
                         if(attempts < config.parser.maxAttempts) {
-                            return self.proxy(keyword, attempts);
+                            return self.proxy(keyword, attempts, isYandex);
                         } else {
                             console.log("PROXY RACE MORE THAN 3 ATTEMPTS! END");
                             decline("STOP GETTING PROXY");
@@ -280,10 +291,10 @@ var Parser = require('parse5').Parser,
                     });
 
                     //console.log(proxies);
-                }).catch(function(err) {
-                    decline(err);
-                    return;
-                });
+                // }).catch(function(err) {
+                //     decline(err);
+                //     return;
+                // });
 
 
 

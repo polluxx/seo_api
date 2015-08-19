@@ -45,6 +45,8 @@ var Prodvigator = require('./services/prodvigator'),
           done(null, {arga: args, data:null, error: err.stack});
         });
     } )
+
+    // PARSE
     .add( {role: 'parse', type: 'concurrents'}, function(args, done) {
         if(args.keyword === undefined) done(true, {error: "main param is not provided"});
 
@@ -55,6 +57,20 @@ var Prodvigator = require('./services/prodvigator'),
             done(null, {args: args, data:null, error: err.stack});
         });
     })
+    .add({role: 'parse', type: 'syno'}, function(args, done) {
+        if(args.keyword !== undefined && !args.keyword instanceof String) {
+            done(true, {error: 'argument keyword isn\'t an instance of String'});
+        }
+
+        var encoded = args.encoded || false, keyword = encoded ? decodeURI(args.keyword) : args.keyword, response = Parser.proxy(keyword, 0, true);
+        co(response).then(function (value) {
+            done(null, {args: args, data:value});
+        }, function (err) {
+            done(null, {args: args, data:null, error: err.stack});
+        });
+    })
+
+    // PROXIES
     .add({role: 'mysql', type: 'proxies'}, function(args, done) {
         if(args.pass === undefined || args.pass !== "nD54zM1") done(true, {error: "you don't have permissions"});
 
@@ -124,6 +140,20 @@ var Prodvigator = require('./services/prodvigator'),
             done(err, response);
         });
     })
+    .add({role: 'check', type: 'syno'}, function(args, done) {
+        if(args.target !== undefined && !args.target instanceof String) {
+            done(true, {error: 'argument target isn\'t an instance of String'});
+        }
+
+        if(args.target !== undefined) args.target = decodeURIComponent(args.target);
+
+        var data = neo4j.checkSynopsis(args);
+        co(data).then(function (value) {
+            done(null, {args: args, data:value});
+        }, function (err) {
+            done(null, {args: args, data:null, error: err.stack || err});
+        });
+    })
 
     // PUBLISH
     .add({role: 'publish', type: 'top100'}, function(args, done) {
@@ -183,7 +213,8 @@ var Prodvigator = require('./services/prodvigator'),
             top100: true,                // GET is the default
             concurrents: {GET:true},        // explicitly accepting GETs
             count: {GET:true},
-            query: {PUT:true, OPTIONS: true}
+            query: {PUT:true, OPTIONS: true},
+            syno: {GET: true}
             //qaz: {GET:true,POST:true} // accepting both GETs and POSTs
         }
     }})
