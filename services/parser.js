@@ -15,7 +15,7 @@ var Parser = require('parse5').Parser,
                     method: "/search?q="
                 },
                 yandex: {
-                    path: "www.yandex.ua",
+                    path: "yandex.ua",
                     secure: true,
                     method: "/search/?lr=963&text="
                 }
@@ -120,8 +120,10 @@ var Parser = require('parse5').Parser,
                 return resp;
             }
         },
-        grab: function (keyword, proxy, response, isYandex) {
+        grab: function (keyword, proxy, response, isYandex, limit) {
             var self = this;
+
+            limit = limit || 5;
 
             keyword = encodeURI(keyword);
 
@@ -129,13 +131,21 @@ var Parser = require('parse5').Parser,
                 var destination = isYandex === undefined ? self.params.destination.google : self.params.destination.yandex,
                     searchReq = destination.method + keyword,
                     httpsRequest, chunked = "",
+                    timeout = setTimeout(function(){
+                        console.log("REQ TIMEOUT REACHED!!!");
+                        console.log("FOR " + destination.path + " - " + proxy);
+                        clearTimeout(timeout);
+                        delete timeout;
 
+                        response.errorStack.push("REQ TIMEOUT REACHED FOR PROXY - "+proxy);
+                        if(response.errorStack.length === limit) decline(response);
+                    }, 20000),
                     request = self.buildRequest(proxy, destination);
 
                 if(destination.secure === true) {
                   // create an instance of the `HttpsProxyAgent` class with the proxy server information
 
-
+                    //console.log(searchReq);
                     httpsRequest = Https.request({
                         // like you'd do it usually...
                         hostname: destination.path,
@@ -147,11 +157,17 @@ var Parser = require('parse5').Parser,
                         followRedirect: true,
                         maxRedirects: 5,
                         gzip: true,
-                        headers: {"Content-Type": "text/plain;charset=utf-8"},
+                        headers: {
+                            "Content-Type": "text/plain;charset=utf-8",
+                            "Set-Cookie": "spravka=dD0xNDA4NTM5NTQ3O2k9ODAuOTEuMTc0LjkwO3U9MTQwODUzOTU0Nzg3MTkxNzUxOTtoPWViODBiZTIwNWQ5YTY1NjdjMDQyYTcyMGRlMjZiYTdl; domain=.yandex.ua; path=/; expires=Sat, 19-Sep-2015 12:59:07 GMT"
+                        },
 
                         // ... just add the special agent:
                         agent: request
                     }, function (res) {
+
+                        clearTimeout(timeout);
+                        delete timeout;
 
                         console.log("proxy: ", proxy);
 
@@ -159,20 +175,22 @@ var Parser = require('parse5').Parser,
                         console.log("headers: ", res.headers);
 
                         if(res.statusCode === 302 && isYandex) {
+                            console.log("302 LINK - "+decodeURIComponent(res.headers.location));
+
                             // make data check
-                            var resultChecking  = antigate.process(res.headers.location);
-                            resultChecking.then(function(checked) {
-                                  console.log("on CAPTCHA: ", checked);
-                            }).
-                            catch(function(err) {
-                                console.log("on CAPTCHA ERROR: ", err);
-                            })
+                            //var resultChecking  = antigate.process(res.headers.location);
+                            //resultChecking.then(function(checked) {
+                            //      console.log("on CAPTCHA: ", checked);
+                            //}).
+                            //catch(function(err) {
+                            //    console.log("on CAPTCHA ERROR: ", err);
+                            //})
 
                         }
 
                         if(res.statusCode !== 200) {
                             response.errorStack.push(JSON.stringify(res.headers));
-                            if(response.errorStack.length === 5) decline(response);
+                            if(response.errorStack.length === limit) decline(response);
                             return;
                         };
 
@@ -197,7 +215,7 @@ var Parser = require('parse5').Parser,
 
                             console.log(err);
                             response.errorStack.push(err);
-                            if(response.errorStack.length === 5) decline(response);
+                            if(response.errorStack.length === limit) decline(response);
                         });
                     });
 
@@ -207,8 +225,11 @@ var Parser = require('parse5').Parser,
                         console.error("ON connection: " + searchReq);
                         response.errorStack.push(err);
 
-                        if(response.errorStack.length === 5) decline(response);
+                        if(response.errorStack.length === limit) decline(response);
                         console.log(err);
+
+                        clearTimeout(timeout);
+                        delete timeout;
                         //decline(err);
                         return;
                     });
@@ -242,28 +263,27 @@ var Parser = require('parse5').Parser,
                 "http://104.41.151.86:80",
                 "http://50.115.194.97:8080",
                 "http://119.40.98.26:8080",
-                "86.96.229.68:8088",
-                "86.96.229.123:8088",
-                "86.96.229.123:80",
-                "86.96.229.68:80",
-                "86.96.229.123:8888",
-                "54.251.177.20:80",
-                "193.2.156.20:80",
-                "185.26.181.241:80",
-                "203.174.44.26:80",
-                "69.59.153.180:80",
-                "82.145.210.160:80"
-            ], promises = [], self = this, response, proxy,
+                "http://86.96.229.68:8088",
+                "http://86.96.229.123:8088",
+                "http://86.96.229.123:80",
+                "http://86.96.229.68:80",
+                "http://86.96.229.123:8888",
+                "http://54.251.177.20:80",
+                "http://193.2.156.20:80",
+                "http://185.26.181.241:80",
+                "http://203.174.44.26:80",
+                "http://69.59.153.180:80",
+                "http://82.145.210.160:80"
+            ], promises = [], self = this, response, proxy, limit = isYandex !== undefined ? 10 : 5, rangeStep = isYandex !== undefined ? 1000 : 2000,
             responseStack = {errorStack: [], data:null};
-
+            //proxies = ["http://80.91.174.90:80"];
             return new Promise(function(resolve, decline) {
 
-                //self.getProxies(self.getRandomArbitrary(1,2000), true).then(function(response) {
-                    //proxies = response;
-
+                self.getProxies(self.getRandomArbitrary(1,rangeStep), true, limit).then(function(response) {
+                    proxies = response;
 
                     for(proxy of proxies) {
-                        promises.push(self.grab(keyword, proxy, responseStack, isYandex));
+                        promises.push(self.grab(keyword, proxy, responseStack, isYandex, limit));
                     }
 
                     Promise.race(promises).then(function(result) {
@@ -272,8 +292,11 @@ var Parser = require('parse5').Parser,
                         console.log(result);
 
                         resolve(result);
+                        //return;
                     },function(err) {
 
+
+                        console.log(err);
                         console.log("PROXY RACE ERROR - ATTEMPT - "+attempts);
                         ++attempts;
 
@@ -291,10 +314,10 @@ var Parser = require('parse5').Parser,
                     });
 
                     //console.log(proxies);
-                // }).catch(function(err) {
-                //     decline(err);
-                //     return;
-                // });
+                }).catch(function(err) {
+                     decline(err);
+                     return;
+                });
 
 
 
@@ -302,15 +325,17 @@ var Parser = require('parse5').Parser,
 
             });
         },
-        getProxies: function (page, checked) {
+        getProxies: function (page, checked, limit) {
             console.info("GET PROXIES - PAGE: "+page);
             return new Promise(function(resolve, reject) {
 
                 page = page || 1;
+                limit = limit || 5;
+                console.log("LIMIT "+limit);
                 var options = {
                     host: "rank.ria.com",
                     port: 10101,
-                    path: "/act?role=mysql&type=proxies&pass=nD54zM1&page="+page+"&limit=5&status="+checked,
+                    path: "/act?role=mysql&type=proxies&pass=nD54zM1&page="+page+"&limit="+limit+"&status="+checked,
                     method: 'GET'
                 },
                 raw = "",

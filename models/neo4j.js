@@ -150,7 +150,8 @@ neo4j = {
                   keywords = args.keywords;
 
                     if(keywords !== undefined) {
-                        done(self.getKeywordsOwnProp(keywords));
+                        if(typeof keywords === "string") keywords = [keywords];
+                        done(keywords);
                         return;
                     }
 
@@ -312,6 +313,58 @@ neo4j = {
             });
         });
     },
+    checkConcurrentKeys: function(args) {
+        var self = this, resultData = {items:null, total:0};
+        return new Promise(function(resolve, reject) {
+            ASQ(function(done) {
+
+                if(args.newCheck !== undefined) done(null);
+
+                if(args.target === undefined) reject("Error: target param is not provided");
+
+                self.concurrentKeywords(args.target, args).then(function(response) {
+                    console.log(response);
+                    if(response.errors.length) reject(response.errors);
+
+                    if(response.results[0] === undefined) {
+                        reject("Empty response");
+                        return;
+                    }
+
+                    if(!response.results[0].data.length) {
+                        reject("По данной ссылке ключей не найдено");
+                        return;
+                    }
+
+                    self.concurrentKeywords(args.target, args, true).then(function(response) {
+                        resultData.total = response.results[0].data[0].row[0];
+                        resolve(resultData);
+                    });
+
+                    resultData.items = response.results[0].data.map(function(item) {
+                        return item.row[0];
+                    });
+
+                }).catch(function(err) {
+                    reject(err);
+                    return;
+                });
+
+
+            })
+                .then(function(done, keywords) {
+
+                    var options = {
+                        host: config.api,
+                        port: 3000,
+                        path: '/rabbit/pub?message={"role":"publish","type":"concurrent-keys","target":"'+args.target+'"}',
+                        method: 'GET'
+                    };
+                    self.makeReq(options, resolve, reject);
+                });
+        });
+    },
+
     checkSynopsis: function(args) {
         var self = this, promises = [], keyword;
 
@@ -345,6 +398,9 @@ neo4j = {
             });
         });
     },
+
+
+    // PUBLISH
     publishTop100: function(link) {
         var self = this;
 
@@ -407,6 +463,7 @@ neo4j = {
             request.end();
         });
     },
+
     publishConcurrents: function(link) {
         var self = this, keywords = [];
         return new Promise(function(resolve, reject) {
@@ -434,15 +491,15 @@ neo4j = {
             .then(function(concurrents) {
                 console.log(concurrents);
 
-                for(concurrent of concurrents) {
-                    promises.push(self.findDomainKeywords({target: concurrent, newCheck: true}));
+                for(concurrent of concurrents.data) {
+                    promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent), newCheck: true}));
                 }
 
                 Promise.all(promises)
                     .then(function(response) {
                         //console.log(response);
                         //resolve(response);
-                        console.log("LINK ACKNOWLEDGED");
+                        console.log("CONCURRENTS LINKS ACKNOWLEDGED");
                     })
                     .catch(function(err) {
                         console.error(err)
@@ -477,7 +534,7 @@ neo4j = {
             resp.on("end", function(resp) {
                 var result = JSON.parse(raw);
 
-                if(result.data === undefined) {
+                if(!result.data) {
                    reject("empty response");
                    return;
                 }
@@ -529,7 +586,9 @@ neo4j = {
         link, label;
 
         for(link of links) {
-            label = link.src.match(/\w+/g).join("");
+            label = link.src.match(/\w+/g).join("").replace(/\d+/g, "");
+
+
             // ADD Link node
             //query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON CREATE SET '+label+'.position = '+link.position+' ON MATCH SET '+label+'.position = '+link.position+', '+label+'.updated = timestamp()\r\n';
             query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON MATCH SET '+label+'.updated = timestamp()\r\n';
@@ -559,7 +618,7 @@ neo4j = {
               limit = " SKIP " + (additional.page-1) * (additional.count || 10) + limit;
           }
       }
-      return (isCount === undefined) ? "keyword, LABELS(keyword), LABELS(n) ORDER BY keyword."+orderby+" "+order+" "+limit : "COUNT(DISTINCT keyword) as total";
+      return (isCount === undefined) ? " DISTINCT keyword, LABELS(keyword), LABELS(n) ORDER BY keyword."+orderby+" "+order+" "+limit : "COUNT(DISTINCT keyword) as total";
 
     },
     domainKeywords: function(link, additional, isCount) {
@@ -567,8 +626,10 @@ neo4j = {
         //console.log(query);
         return this.request(query);
     },
-    concurrentKeywords: function(target) {
-        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword) WHERE n.src = '"+link+"' RETURN " + this.buildPaginator(link, additional, isCount);
+    concurrentKeywords: function(link, additional, isCount) {
+        var query = "MATCH (n:Link)-[:CONTAINS]->()-[:TOP10]-(concurrent)-[:CONTAINS]-(keyword) WHERE n.src = '"+link+"' RETURN " + this.buildPaginator(link, additional, isCount);
+
+        console.log(query);
         return this.request(query);
     },
     domainConcurrents: function(link) {
@@ -579,6 +640,7 @@ neo4j = {
         var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' OPTIONAL MATCH (n:Link)-[:CONTAINS]->(k)  WHERE n.src = '"+link+"' RETURN COUNT(DISTINCT keyword) as c, COUNT(DISTINCT k) as t";
         return this.request(query);
     },
+
     request: function(query) {
         var self = this;
 

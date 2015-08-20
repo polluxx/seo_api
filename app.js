@@ -102,7 +102,7 @@ var Prodvigator = require('./services/prodvigator'),
 
         if(args.target !== undefined) args.target = decodeURIComponent(args.target);
 
-        var data = neo4j.findKeywordsLinks(args);
+        var data = neo4j.checkConcurrentKeys(args);
         co(data).then(function (value) {
             done(null, {args: args, data:value});
         }, function (err) {
@@ -114,7 +114,7 @@ var Prodvigator = require('./services/prodvigator'),
             done(true, {error: 'argument target isn\'t an instance of String'});
         }
 
-            args.target = decodeURIComponent(args.target);
+        args.target = decodeURIComponent(args.target);
 
         var data = neo4j.findDomainKeywords(args);
         co(data).then(function (value) {
@@ -214,7 +214,8 @@ var Prodvigator = require('./services/prodvigator'),
             concurrents: {GET:true},        // explicitly accepting GETs
             count: {GET:true},
             query: {PUT:true, OPTIONS: true},
-            syno: {GET: true}
+            syno: {GET: true},
+            'concurrent-keys': {GET: true}
             //qaz: {GET:true,POST:true} // accepting both GETs and POSTs
         }
     }})
