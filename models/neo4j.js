@@ -490,7 +490,7 @@ neo4j = {
         this.findKeywordsLinks({target: target})
             .then(function(concurrents) {
                 console.log(concurrents);
-
+                
                 for(concurrent of concurrents.data) {
                     promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent), newCheck: true}));
                 }

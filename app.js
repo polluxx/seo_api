@@ -10,6 +10,7 @@ var Prodvigator = require('./services/prodvigator'),
     cors = require('cors'),
     co = require('co'),
     app = require('express')(),
+    io = require('socket.io')(8001),
     seneca = require('seneca')({
         transport:{
             web:{
@@ -89,7 +90,9 @@ var Prodvigator = require('./services/prodvigator'),
         }
         if(args.target !== undefined) args.target = decodeURIComponent(args.target);
         var data = neo4j.findKeywordsLinks(args);
+
         co(data).then(function (value) {
+
             done(null, {args: args, data:value});
         }, function (err) {
             done(null, {args: args, data:null, error: err.stack || err});
@@ -194,6 +197,16 @@ var Prodvigator = require('./services/prodvigator'),
     })
 
     .add({role: 'rabbit', type: 'sub'}, function(args, done) {
+        io.on('connection', function (socket) {
+          io.emit('this', { will: 'be received by everyone'});
+          socket.on('private message', function (from, msg) {
+            console.log('I received a private message by ', from, ' saying ', msg);
+          });
+
+          socket.on('disconnect', function () {
+            io.emit('user disconnected');
+          });
+        });
         rabbit.sub();
         done(null, {message: "LISTENING"});
     })

@@ -5,6 +5,7 @@ var Parser = require('parse5').Parser,
     antigate = require('./anti-gate.js'),
     config = require('../config.js'),
     neo4j = require('../models/neo4j.js'),
+    io = require('socket.io')(8000),
     HttpsProxyAgent = require('https-proxy-agent'),
     parser = {
         params: {
@@ -207,7 +208,7 @@ var Parser = require('parse5').Parser,
 
                             neo4j.publishLinks(response.data, keyword);
                             console.info("DATA MUST BE RESOLVED");
-
+                            self.emit(keyword+" ready", 'main');
                             resolve(response);
                         })
                         .on('error', function(err) {
@@ -241,6 +242,19 @@ var Parser = require('parse5').Parser,
             });
 
 
+        },
+        emit: function(message, chan) {
+          io.on('connection', function (socket) {
+              io.emit(chan, { msg: message});
+
+              socket.on(chan, function (from, msg) {
+                console.log('I received a private message by ', from, ' saying ', msg);
+              });
+
+              socket.on('disconnect', function () {
+                io.emit('user disconnected');
+              });
+          });
         },
         getRandomArbitrary: function(min, max) {
             return Math.ceil(Math.random() * (max - min) + min);
@@ -279,8 +293,8 @@ var Parser = require('parse5').Parser,
             //proxies = ["http://80.91.174.90:80"];
             return new Promise(function(resolve, decline) {
 
-                self.getProxies(self.getRandomArbitrary(1,rangeStep), true, limit).then(function(response) {
-                    proxies = response;
+                // self.getProxies(self.getRandomArbitrary(1,rangeStep), true, limit).then(function(response) {
+                //     proxies = response;
 
                     for(proxy of proxies) {
                         promises.push(self.grab(keyword, proxy, responseStack, isYandex, limit));
@@ -314,10 +328,10 @@ var Parser = require('parse5').Parser,
                     });
 
                     //console.log(proxies);
-                }).catch(function(err) {
-                     decline(err);
-                     return;
-                });
+                // }).catch(function(err) {
+                //      decline(err);
+                //      return;
+                // });
 
 
 
