@@ -5,7 +5,7 @@ var Parser = require('parse5').Parser,
     antigate = require('./anti-gate.js'),
     config = require('../config.js'),
     neo4j = require('../models/neo4j.js'),
-    io = require('socket.io')(8000),
+    io = require('socket.io-client'),
     HttpsProxyAgent = require('https-proxy-agent'),
     parser = {
         params: {
@@ -30,6 +30,9 @@ var Parser = require('parse5').Parser,
             }
         },
         request: null,
+        chan: function() {
+            return io('http://localhost:8002/');
+        },
         buildRequest: function(proxy, path) {
             var proxyHost, proxyPort, splitted, request, agent;
             splitted = proxy.split(":");
@@ -208,7 +211,13 @@ var Parser = require('parse5').Parser,
 
                             neo4j.publishLinks(response.data, keyword);
                             console.info("DATA MUST BE RESOLVED");
-                            self.emit(keyword+" ready", 'main');
+
+                            self.chan().send({log: {level:config.log.levels.DATA,
+                                message: "KEYWORD '" + decodeURIComponent(keyword) + "' done",
+                                data: {
+                                    keyword: decodeURIComponent(keyword)
+                                }}});
+
                             resolve(response);
                         })
                         .on('error', function(err) {
@@ -293,8 +302,8 @@ var Parser = require('parse5').Parser,
             //proxies = ["http://80.91.174.90:80"];
             return new Promise(function(resolve, decline) {
 
-                // self.getProxies(self.getRandomArbitrary(1,rangeStep), true, limit).then(function(response) {
-                //     proxies = response;
+                self.getProxies(self.getRandomArbitrary(1,rangeStep), true, limit).then(function(response) {
+                     proxies = response;
 
                     for(proxy of proxies) {
                         promises.push(self.grab(keyword, proxy, responseStack, isYandex, limit));
@@ -317,6 +326,13 @@ var Parser = require('parse5').Parser,
                         if(attempts < config.parser.maxAttempts) {
                             return self.proxy(keyword, attempts, isYandex);
                         } else {
+
+                            self.chan().send({log: {level:config.log.levels.ERROR,
+                                message: "KEYWORD '" + decodeURIComponent(keyword) + "' ERROR: more than 3 attempts failed to get data",
+                                data: {
+                                    keyword: decodeURIComponent(keyword)
+                                }}});
+
                             console.log("PROXY RACE MORE THAN 3 ATTEMPTS! END");
                             decline("STOP GETTING PROXY");
                             // LOG
@@ -328,10 +344,10 @@ var Parser = require('parse5').Parser,
                     });
 
                     //console.log(proxies);
-                // }).catch(function(err) {
-                //      decline(err);
-                //      return;
-                // });
+                }).catch(function(err) {
+                      decline(err);
+                      return;
+                });
 
 
 

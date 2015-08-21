@@ -10,7 +10,7 @@ var Prodvigator = require('./services/prodvigator'),
     cors = require('cors'),
     co = require('co'),
     app = require('express')(),
-    io = require('socket.io')(8001),
+    io = require('socket.io')(8002),
     seneca = require('seneca')({
         transport:{
             web:{
@@ -197,18 +197,24 @@ var Prodvigator = require('./services/prodvigator'),
     })
 
     .add({role: 'rabbit', type: 'sub'}, function(args, done) {
-        io.on('connection', function (socket) {
-          io.emit('this', { will: 'be received by everyone'});
-          socket.on('private message', function (from, msg) {
-            console.log('I received a private message by ', from, ' saying ', msg);
-          });
-
-          socket.on('disconnect', function () {
-            io.emit('user disconnected');
-          });
-        });
         rabbit.sub();
         done(null, {message: "LISTENING"});
+    })
+    .add({role: 'io', type: 'sub'}, function(args, done) {
+        console.log("start");
+            io.on('connection', function (socket) {
+                console.log('client connected');
+                socket.on('message', function (mess) {
+                    console.log(mess);
+                    socket.send('hello');
+                    io.send(mess);
+                });
+                socket.on('disconnect', function () {
+                    console.log('client disconnected');
+                });
+            });
+
+        done(null, {message: "LISTEN WEBSOCK"});
     })
 
 
@@ -248,10 +254,11 @@ var Prodvigator = require('./services/prodvigator'),
     }})
 
     .act({role: 'rabbit', type: 'sub'})
+    .act({role: 'io', type: 'sub'})
     //.add( { generate:'id', type:'nid'}, id.nid )
     .listen({timeout:22000});
 
-    var whitelist = ['http://cm.ria.local:8000', 'http://seo.ria.com', 'http://cm.ria.com'],
+    var whitelist = ['http://cm.ria.local:8000', 'http://seo.ria.com', 'http://cm.ria.com', 'http://cm.ria.local', 'http://cm.ria.local:8002'],
     corsOptionsDelegate = function(req, callback){
         var corsOptions;
         if(whitelist.indexOf(req.header('Origin')) !== -1){

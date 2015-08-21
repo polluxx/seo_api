@@ -279,6 +279,7 @@ neo4j = {
                raw = "",
                request = http.request(options, function (resp) {
                    console.log('STATUS: ' + resp.statusCode);
+                   console.log(resp.data);
                    if(resp.statusCode !== 200) {
                       reject(resp);
                       return;
