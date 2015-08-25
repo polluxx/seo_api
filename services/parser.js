@@ -31,7 +31,7 @@ var Parser = require('parse5').Parser,
         },
         request: null,
         chan: function() {
-            return io('http://localhost:8002/');
+            return io(config.services.socketio.host);
         },
         buildRequest: function(proxy, path) {
             var proxyHost, proxyPort, splitted, request, agent;

@@ -155,7 +155,7 @@ var http = require('http'),
         return data;
     },
     chan: function() {
-        return io('http://localhost:8002/');
+        return io(config.services.socketio.host);
     },
     sequence: function (reqParams) {
         var self = this, done = null, promised,
