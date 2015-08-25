@@ -2,6 +2,7 @@
 
 var http = require('http'),
     ASQ = require('asynquence'),
+    io = require('socket.io-client'),
     config = require('../config'),
     Prodvigator = {
     params: {
@@ -153,6 +154,9 @@ var http = require('http'),
 
         return data;
     },
+    chan: function() {
+        return io('http://localhost:8002/');
+    },
     sequence: function (reqParams) {
         var self = this, done = null, promised,
             page = 1, failedReq = 0, target = reqParams.queryBody,
@@ -179,6 +183,15 @@ var http = require('http'),
                 response.error = promised.error || response.error || null;
                 if(promised.data && promised.data instanceof Array) response.items = (response.items !== undefined) ? response.items.concat(promised.data) : promised.data;
                 response.left = promised.left || response.left || null;
+
+                if(response.left) {
+                    self.chan().send({log: {level:config.log.levels.INFO,
+                        message: "TARGET '" + target + "' done",
+                        data: {
+                            target: target,
+                            queriesLeft: response.left
+                        }}});
+                }
 
                 if(response.items === undefined) done = true;
 
