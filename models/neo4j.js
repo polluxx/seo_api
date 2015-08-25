@@ -211,7 +211,7 @@ neo4j = {
                     console.info('START CHECKING BY KEYWORDS');
                     console.info(args.keywords);
                   reject("Concurrents in process");
-                  self.promiseKeywords(keywords, resolve, reject);
+                  self.promiseKeywords(args.keywords, resolve, reject);
               })
         });
     },

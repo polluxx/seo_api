@@ -75,6 +75,7 @@ var http = require('http'),
             query = this.buildQuery(reqParams),
             target = reqParams.queryBody;
 
+        console.log(reqParams);
         //yield new Promise( function (done,reject) {
 
             console.info("START request - "+ target);
@@ -107,6 +108,17 @@ var http = require('http'),
 
                         var result = JSON.parse(raw);
                           //console.log(result);
+
+                        if(result.queries_left !== undefined) {
+                            self.chan().send({log: {level:config.log.levels.INFO,
+                                message: "TARGET '" + target + "' done",
+                                data: {
+                                    target: target,
+                                    queriesLeft: result.queries_left
+                                }}});
+                        }
+
+
                         if(result.status_code !== 200) done({"error": "Code: "+ result.status_code + "; Body: " + result.status_msg, "data": null});
 
                         result.result = self.filtration(result.result, reqParams);
@@ -164,36 +176,34 @@ var http = require('http'),
         //yield new Promise( function (done,reject) {
 
             reqParams.page = page;
-
+            if(target === undefined) {
+                return ASQ().val({"error": "Error in request, target is not defined!", data: null});
+            }
             //var stepReq = ;
             //stepReq.next();
             return ASQ( function(done){
                     reqParams.queryBody = target;
                     self.getItem( reqParams, done );
+
+                    console.log("TRY - "+page);
                 })
                 .val(makeResponse)
                 .seq( function(token){
                     if(token.data === null || done !== null || (page > seqLimit)) return ASQ(token).val(makeResponse);
+
+                    console.log("STEP - "+page);
+
                     return flow(token);
                 })
                 .val(makeResponse);
 
             function makeResponse(promised) {
-
+                //console.log(promised);
                 response.error = promised.error || response.error || null;
                 if(promised.data && promised.data instanceof Array) response.items = (response.items !== undefined) ? response.items.concat(promised.data) : promised.data;
                 response.left = promised.left || response.left || null;
 
-                if(response.left) {
-                    self.chan().send({log: {level:config.log.levels.INFO,
-                        message: "TARGET '" + target + "' done",
-                        data: {
-                            target: target,
-                            queriesLeft: response.left
-                        }}});
-                }
-
-                if(response.items === undefined) done = true;
+                if(response.items === undefined || promised.error !== undefined) done = true;
 
                 return response;
             }

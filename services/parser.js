@@ -13,7 +13,7 @@ var Parser = require('parse5').Parser,
                 google: {
                     path: "www.google.com.ua",
                     secure: true,
-                    method: "/search?q="
+                    method: "/search?tbs=ctr:countryUA&cr=countryUA&q="
                 },
                 yandex: {
                     path: "yandex.ua",
