@@ -218,10 +218,12 @@ neo4j = {
     promiseKeywords: function(keywords, resolve, reject, newCheck) {
 
 
-        var promises = [], keyword, linkFunct;
-        for(keyword of keywords) {
-            keyword = decodeURI(keyword);
-            linkFunct = this.checkKeywordsLinks(keyword, 100, newCheck);
+        var promises = [], keyword, index, linkFunct, self = this;
+
+        for(index in keywords) {
+            keyword = decodeURIComponent(keywords[index]);
+
+            linkFunct = self.checkKeywordsLinks(keyword, 100, newCheck);
             promises.push(linkFunct);
         }
 
