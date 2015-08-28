@@ -636,7 +636,9 @@ neo4j = {
         return this.request(query);
     },
     domainConcurrents: function(link) {
-        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' RETURN DISTINCT r";
+        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' RETURN DISTINCT r, count(keyword) as c";
+
+        console.log(query);
         return this.request(query);
     },
     concurrentsProcessed: function(link) {
