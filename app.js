@@ -63,7 +63,7 @@ var Prodvigator = require('./services/prodvigator'),
             done(true, {error: 'argument keyword isn\'t an instance of String'});
         }
 
-        var encoded = args.encoded || false, keyword = encoded ? decodeURI(args.keyword) : args.keyword, response = Parser.proxy(keyword, 0, true);
+        var encoded = args.encoded || false, keyword = encoded ? decodeURIComponent(args.keyword) : args.keyword, response = Parser.proxy(keyword, 0, true);
         co(response).then(function (value) {
             done(null, {args: args, data:value});
         }, function (err) {
@@ -149,6 +149,7 @@ var Prodvigator = require('./services/prodvigator'),
         }
 
         if(args.target !== undefined) args.target = decodeURIComponent(args.target);
+
 
         var data = neo4j.checkSynopsis(args);
         co(data).then(function (value) {

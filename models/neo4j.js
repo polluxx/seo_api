@@ -160,7 +160,7 @@ neo4j = {
                         return;
                     }
 
-                    self.domainConcurrents(args.target).then(function(response) {
+                    self.domainConcurrents(args.target, args).then(function(response) {
                         if(response.errors.length) reject(response.errors);
 
                         if(response.results[0] === undefined || !response.results[0].data.length) {
@@ -183,7 +183,16 @@ neo4j = {
                             return;
                         }
 
-                        result.data = response.results[0].data.reduce(function(prev, next, index) {
+                        result.data = response.results[0].data.map(function(item) {
+                            return {
+                                src: item.row[0],
+                                intersection: item.row[1]
+                            };
+                        }).filter(function(item) {
+                            return !item.src.match(/ria.com/);
+                        });
+
+                        /*result.data = response.results[0].data.reduce(function(prev, next, index) {
 
                             row = decodeURIComponent(next.row[0].src);
                             if(index > 1) unique = prev;
@@ -195,7 +204,7 @@ neo4j = {
                             }
 
                             return unique;
-                        });
+                        });*/
 
                         result.total = result.data.length;
                         resolve(result);
@@ -210,13 +219,18 @@ neo4j = {
               .then(function (done, keywords) {
                     console.info('START CHECKING BY KEYWORDS');
                     console.info(args.keywords);
+
+                    console.log();
+                    if(typeof args.keywords === 'string') {
+                        args.keywords = [args.keywords];
+                    }
+
                   reject("Concurrents in process");
                   self.promiseKeywords(args.keywords, resolve, reject);
               })
         });
     },
     promiseKeywords: function(keywords, resolve, reject, newCheck) {
-
 
         var promises = [], keyword, index, linkFunct, self = this;
 
@@ -378,14 +392,15 @@ neo4j = {
                 done(keywords);
             })
             .then(function(err, keywords) {
-                if(keywords === undefined || !keywords instanceof Array) {
+                if(keywords === undefined || !keywords instanceof Array || typeof keywords === "string") {
                     reject("keywords is not defined or isnt an instance oe the array!");
                     return;
                 }
 
                 resolve("Data is on it way");
-
                 for(keyword of keywords) {
+
+                    keyword = decodeURIComponent(keyword);
                     promises.push(self.publishSyno(keyword, resolve, reject));
                 }
 
@@ -621,7 +636,7 @@ neo4j = {
               limit = " SKIP " + (additional.page-1) * (additional.count || 10) + limit;
           }
       }
-      return (isCount === undefined) ? " DISTINCT keyword, LABELS(keyword), LABELS(n) ORDER BY keyword."+orderby+" "+order+" "+limit : "COUNT(DISTINCT keyword) as total";
+      return (isCount === undefined) ? " DISTINCT keyword ORDER BY keyword."+orderby+" "+order+" "+limit : "COUNT(DISTINCT keyword) as total";
 
     },
     domainKeywords: function(link, additional, isCount) {
@@ -635,8 +650,16 @@ neo4j = {
         console.log(query);
         return this.request(query);
     },
-    domainConcurrents: function(link) {
-        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' RETURN DISTINCT r, count(keyword) as c";
+    domainConcurrents: function(link, additional) {
+        var order = "desc", orderby = "c", index;
+        if(additional.sorting !== undefined) {
+            for(index in additional.sorting) {
+                orderby = index;
+                order = additional.sorting[index];
+            }
+        }
+
+        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' RETURN DISTINCT r.src, count(keyword) as c ORDER BY "+orderby+" "+order;
 
         console.log(query);
         return this.request(query);

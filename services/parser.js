@@ -6,6 +6,7 @@ var Parser = require('parse5').Parser,
     config = require('../config.js'),
     neo4j = require('../models/neo4j.js'),
     io = require('socket.io-client'),
+    fm = require('../models/files.js'),
     HttpsProxyAgent = require('https-proxy-agent'),
     parser = {
         params: {
@@ -18,7 +19,7 @@ var Parser = require('parse5').Parser,
                 yandex: {
                     path: "yandex.ua",
                     secure: true,
-                    method: "/search/?lr=963&text="
+                    method: "/yandsearch/?lr=143&text="
                 }
             },
             filters: {
@@ -129,7 +130,7 @@ var Parser = require('parse5').Parser,
 
             limit = limit || 5;
 
-            keyword = encodeURI(keyword);
+            keyword = encodeURIComponent(keyword);
 
             return new Promise(function(resolve, decline) {
                 var destination = isYandex === undefined ? self.params.destination.google : self.params.destination.yandex,
@@ -163,7 +164,7 @@ var Parser = require('parse5').Parser,
                         gzip: true,
                         headers: {
                             "Content-Type": "text/plain;charset=utf-8",
-                            "Set-Cookie": "spravka=dD0xNDA4NTM5NTQ3O2k9ODAuOTEuMTc0LjkwO3U9MTQwODUzOTU0Nzg3MTkxNzUxOTtoPWViODBiZTIwNWQ5YTY1NjdjMDQyYTcyMGRlMjZiYTdl; domain=.yandex.ua; path=/; expires=Sat, 19-Sep-2015 12:59:07 GMT"
+                            "Set-Cookie": "spravka=dD0xNDA5NjQzNzI4O2k9MTc3LjM4LjI0MC4xMzA7dT0xNDA5NjQzNzI4MDA4OTkyMzU3O2g9NTk4Zjg3YWQ4NjFlZjEwNmI4YWYyZTljNzNjOTJmZWE="
                         },
 
                         // ... just add the special agent:
@@ -270,7 +271,6 @@ var Parser = require('parse5').Parser,
         },
         proxy: function(keyword, attempts, isYandex) {
 
-
             var self = this,
             attempts = attempts || 0,
             proxies = [
@@ -299,12 +299,15 @@ var Parser = require('parse5').Parser,
                 "http://82.145.210.160:80"
             ], promises = [], self = this, response, proxy, limit = isYandex !== undefined ? 10 : 5, rangeStep = isYandex !== undefined ? 1000 : 2000,
             responseStack = {errorStack: [], data:null};
-            //proxies = ["http://80.91.174.90:80"];
+            //proxies = ["http://86.96.229.68:8888",
+            //"http://41.75.81.42:80",
+            //"http://68.142.136.252:80",
+            //"http://203.174.44.26:80",
+            //"http://195.50.71.239:80"];
             return new Promise(function(resolve, decline) {
 
                 self.getProxies(self.getRandomArbitrary(1,rangeStep), true, limit).then(function(response) {
                      proxies = response;
-
                     for(proxy of proxies) {
                         promises.push(self.grab(keyword, proxy, responseStack, isYandex, limit));
                     }

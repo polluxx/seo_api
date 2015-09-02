@@ -1,0 +1,8 @@
+{
+  "uid": "seo_api_app_proxy",
+  "append": true,
+  "watch": true,
+  "script": "proxy.js",
+  "sourceDir": "/var/www/seo_api/microservices",
+  "command": "iojs"
+}
