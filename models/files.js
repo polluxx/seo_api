@@ -1,7 +1,7 @@
 var fs = require('fs'),
 FileManager = {
     params: {
-        defaultDir: '/var/www/html/seo_api/'
+        defaultDir: '/var/www/html/log/cookies'
     },
     open: function(path, encoding, res, dec) {
         if(!encoding) encoding = 'utf8';
@@ -42,7 +42,7 @@ FileManager = {
                 }
 
                 allowFiles = files.filter(function (file) {
-                    return file.match(/\.js/);
+                    return file.match(/yandex/);
                 });
                 rand = self.getRandomInt(0, allowFiles.length);
                 resolve(allowFiles.slice(rand, rand + 1));

@@ -2,9 +2,9 @@
 'use strict';
 
 var
-    rabbit = require('./services/rabbit'),
-    mysql = require('./models/mysql.js'),
-    fm = require('./models/files.js'),
+    rabbit = require('../services/rabbit'),
+    mysql = require('../models/mysql.js'),
+    fm = require('../models/files.js'),
     co = require('co'),
     seneca = require('seneca')({
         transport:{
