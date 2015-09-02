@@ -22,7 +22,7 @@ FileManager = {
         return new Promise(function(resolve, reject) {
             if(!path) {
                 self.getRandomFile().then(function(res){
-                    self.open(res[0], null, resolve, reject);
+                    self.open(self.params.defaultDir + "/" +res[0], null, resolve, reject);
                 });
             } else {
                 self.open(path, null, resolve, reject);
