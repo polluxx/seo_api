@@ -63,11 +63,11 @@ var Prodvigator = require('./services/prodvigator'),
             done(true, {error: 'argument keyword isn\'t an instance of String'});
         }
 
-        var encoded = args.encoded || false, keyword = encoded ? decodeURIComponent(args.keyword) : args.keyword, response = Parser.proxy(keyword, 0, true);
+        var encoded = args.encoded || false, keyword = encoded ? decodeURIComponent(args.keyword) : args.keyword, response = Parser.yandexXml(keyword, true);
         co(response).then(function (value) {
-            done(null, {args: args, data:value});
+            done(null, {data:value});
         }, function (err) {
-            done(null, {args: args, data:null, error: err.stack});
+            done(null, {data:null, error: err.stack});
         });
     })
 
@@ -93,9 +93,9 @@ var Prodvigator = require('./services/prodvigator'),
 
         co(data).then(function (value) {
 
-            done(null, {args: args, data:value});
+            done(null, {data:value});
         }, function (err) {
-            done(null, {args: args, data:null, error: err.stack || err});
+            done(null, {data:null, error: err.stack || err});
         });
     })
     .add({role: 'check', type: 'concurrent-keys'}, function(args, done) {
@@ -107,9 +107,9 @@ var Prodvigator = require('./services/prodvigator'),
 
         var data = neo4j.checkConcurrentKeys(args);
         co(data).then(function (value) {
-            done(null, {args: args, data:value});
+            done(null, {data:value});
         }, function (err) {
-            done(null, {args: args, data:null, error: err.stack || err});
+            done(null, {data:null, error: err.stack || err});
         });
     })
     .add({role: 'check', type: 'top100'}, function(args, done) {
@@ -153,9 +153,17 @@ var Prodvigator = require('./services/prodvigator'),
 
         var data = neo4j.checkSynopsis(args);
         co(data).then(function (value) {
-            done(null, {args: args, data:value});
+            done(null, {data:value});
         }, function (err) {
-            done(null, {args: args, data:null, error: err.stack || err});
+            done(null, {data:null, error: err.stack || err});
+        });
+    })
+    .add({role: 'check', type: 'yaxmlcount'}, function(args, done) {
+        Parser.yandexXmlLimits().then(function(resp) {
+            done(null, {data:resp});
+        })
+        .catch(function(err) {
+            done(null, {data:null, error: err});
         });
     })
 
@@ -235,7 +243,8 @@ var Prodvigator = require('./services/prodvigator'),
             count: {GET:true},
             query: {PUT:true, OPTIONS: true},
             syno: {GET: true},
-            'concurrent-keys': {GET: true}
+            'concurrent-keys': {GET: true},
+            yaxmlcount: {GET: true}
             //qaz: {GET:true,POST:true} // accepting both GETs and POSTs
         }
     }})

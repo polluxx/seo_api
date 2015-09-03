@@ -383,17 +383,86 @@ neo4j = {
     },
 
     checkSynopsis: function(args) {
-        var self = this, promises = [], keyword;
+        var self = this, promises = [], keyword, query, limit = "";
 
         return new Promise(function(resolve, reject) {
             ASQ(function(done) {
                 // #// TODO: make req
-                var keywords = args.keywords;
-                done(keywords);
+
+                if(args.newCheck) {
+                    done(args.target);
+                    return;
+                }
+
+                if(!args.target) {
+                    reject(encodeURIComponent("не задан целевой url"));
+                    return;
+                }
+
+                if(args.count !== undefined) {
+                    limit = " LIMIT " + args.count;
+                }
+                if(args.page !== undefined && args.page > 1) {
+
+                    limit = " SKIP " + (args.page-1) * (args.count || 10) + limit;
+                }
+
+                query = "MATCH (n:Link)-[:CONTAINS]->()-[:TOP10]-()-[:CONTAINS]-(keyword)-[:COMES]-(syno) WHERE n.src = '"+args.target+"'  RETURN  DISTINCT syno.src, keyword " + limit;
+                console.log(query);
+                self.cypher(query, null, function(err, response) {
+                    if(err) {
+                        reject(err);
+                        return;
+                    }
+
+                    if(response.errors !== undefined && response.errors.length > 0) {
+                        reject(response.errors);
+                        return;
+                    }
+
+                    if(response.results[0] !== undefined && response.results[0].data !== undefined && response.results[0].data.length) {
+
+                        var resp = {data: response.results[0].data.map(function(item) {
+                            return {
+                                synonim: item.row[0],
+                                keyword: item.row[1].src
+                            };
+                        }), total: 100};
+                        resolve(resp);
+
+                        return;
+                    }
+
+                    resolve(null);
+                });
+
+            })
+            .then(function(done, target) {
+
+
+
+                if(target === undefined || args.keywords !== undefined) {
+                    //console.log(args.keywords);
+                    done(args.keywords);
+                    return;
+                }
+
+
+                self.concurrentKeywords(args.target).then(function(response) {
+                    if(response.errors.length) reject(response.errors);
+
+                    var items = response.results[0].data.map(function(item) {
+                        return item.row[0];
+                    });
+                    console.log(items);
+
+                }).catch(function(err) {
+                    reject(err);
+                });
             })
             .then(function(err, keywords) {
                 if(keywords === undefined || !keywords instanceof Array || typeof keywords === "string") {
-                    reject("keywords is not defined or isnt an instance oe the array!");
+                    reject("keywords is not defined or isnt an instance of the array!");
                     return;
                 }
 
@@ -536,37 +605,8 @@ neo4j = {
             path: '/act?role=parse&type=syno&keyword='+encodeURI(keyword)+'&encoded=true',
             method: 'GET'
         },
-        raw = "",
-        request = http.request(options, function (resp) {
-            console.log('STATUS: ' + resp.statusCode);
-            if(resp.statusCode !== 200) {
-               reject(resp);
-               return;
-            }
-
-            resp.setEncoding('utf8');
-            resp.on('data', function (chunk) {
-                raw += chunk;
-            });
-
-            resp.on("end", function(resp) {
-                var result = JSON.parse(raw);
-
-                if(!result.data) {
-                   reject("empty response");
-                   return;
-                }
-
-                resolve(result.data.data);
-
-            });
-        });
-        request.on('error', function (e) {
-            //console.log('problem with request: ' + e.message);
-            reject({"error": e.message, "raw": e, data: null});
-        });
-
-        request.end();
+        raw = "";
+        this.makeReq(options, resolve, reject);
     },
 
     // to DB
@@ -606,7 +646,6 @@ neo4j = {
         for(link of links) {
             label = link.src.match(/\w+/g).join("").replace(/\d+/g, "");
 
-
             // ADD Link node
             //query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON CREATE SET '+label+'.position = '+link.position+' ON MATCH SET '+label+'.position = '+link.position+', '+label+'.updated = timestamp()\r\n';
             query += 'MERGE ('+label+':Link {src:"'+link.src+'"}) ON MATCH SET '+label+'.updated = timestamp()\r\n';
@@ -618,6 +657,25 @@ neo4j = {
             console.log(response);
         });
 
+    },
+    insertSynonims: function(keyword, synonims) {
+        if(!keyword || !synonims) return Error("keyword or synonims are empty");
+
+        var synonim, label, unique = [], query = 'MERGE (keyword:Keyword {src:"'+decodeURI(keyword)+'"}) ON MATCH SET keyword.updated = timestamp()\r\n';
+        for(synonim of synonims) {
+            label = transliteration.transliterate(synonim).replace(/\s/g, "").match(/\w+/g).join("");
+
+            if(~unique.indexOf(label)) continue;
+            unique.push(label);
+
+            query += 'MERGE ('+label+':Synonim {src:"'+synonim+'"}) ON MATCH SET '+label+'.updated = timestamp()\r\n';
+            // ADD connection with Synonim and Keyword
+            query += 'MERGE ('+label+')-[:COMES{}]-(keyword)\r\n';
+        }
+        this.cypher(query, null, function(err, response) {
+            console.log(err);
+            console.log(response);
+        });
     },
     buildPaginator: function(link, additional, isCount) {
       var order = "ASC", orderby = "position", limit = "", index;
@@ -647,7 +705,7 @@ neo4j = {
     concurrentKeywords: function(link, additional, isCount) {
         var query = "MATCH (n:Link)-[:CONTAINS]->()-[:TOP10]-(concurrent)-[:CONTAINS]-(keyword) WHERE n.src = '"+link+"' RETURN " + this.buildPaginator(link, additional, isCount);
 
-        console.log(query);
+        //console.log(query);
         return this.request(query);
     },
     domainConcurrents: function(link, additional) {
@@ -661,11 +719,7 @@ neo4j = {
 
         var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' RETURN DISTINCT r.src, count(keyword) as c ORDER BY "+orderby+" "+order;
 
-        console.log(query);
-        return this.request(query);
-    },
-    concurrentsProcessed: function(link) {
-        var query = "MATCH (n:Link)-[:CONTAINS]->(keyword)-[t:TOP10]-(r:Link) WHERE n.src = '"+link+"' OPTIONAL MATCH (n:Link)-[:CONTAINS]->(k)  WHERE n.src = '"+link+"' RETURN COUNT(DISTINCT keyword) as c, COUNT(DISTINCT k) as t";
+        //console.log(query);
         return this.request(query);
     },
 
@@ -692,7 +746,7 @@ neo4j = {
             if (limit === undefined || limit > 100) limit = 100;
             query = "MATCH (n:Link)-[:TOP10]->(keyword) where keyword.src = '"+keyword+"' RETURN n,keyword LIMIT "+limit;
             //query = "MATCH (n:Link),(keyword:Keyword) OPTIONAL MATCH (n)-[r1]-(), (keyword)-[r2]-() DELETE n,keyword,r1,r2";
-            console.log(query);
+            //console.log(query);
             self.cypher(query, null, function(err, response) {
                 if(err) {
                     reject(err);

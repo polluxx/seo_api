@@ -3,6 +3,7 @@ var Parser = require('parse5').Parser,
     Http = require('http'),
     mysql = require('../models/mysql.js'),
     antigate = require('./anti-gate.js'),
+    parseString = require('xml2js').parseString,
     config = require('../config.js'),
     neo4j = require('../models/neo4j.js'),
     io = require('socket.io-client'),
@@ -17,9 +18,10 @@ var Parser = require('parse5').Parser,
                     method: "/search?tbs=ctr:countryUA&cr=countryUA&q="
                 },
                 yandex: {
-                    path: "yandex.ua",
+                    path: "yandex.com",
                     secure: true,
-                    method: "/yandsearch/?lr=143&text="
+                    //method: "/yandsearch/?lr=143&text="
+                    method: "/search/xml?l10n=en&user=uid-6nmpnzuy&key=03.299480881:46d7f19d423d13915ef2362deb7eeaaf&query="
                 }
             },
             filters: {
@@ -125,12 +127,13 @@ var Parser = require('parse5').Parser,
                 return resp;
             }
         },
-        grab: function (keyword, proxy, response, isYandex, limit) {
+        grab: function (keyword, proxy, response, isYandex, limit, destinationObj) {
             var self = this;
 
             limit = limit || 5;
 
             keyword = encodeURIComponent(keyword);
+
 
             return new Promise(function(resolve, decline) {
                 var destination = isYandex === undefined ? self.params.destination.google : self.params.destination.yandex,
@@ -147,8 +150,20 @@ var Parser = require('parse5').Parser,
                     }, 20000),
                     request = self.buildRequest(proxy, destination);
 
-                if(destination.secure === true) {
+                    if(!self.cookie) {
+                        decline('COOKIE IS NOT SETUPED');
+                        return;
+                    }
+
+                    if(destination.secure === true) {
                   // create an instance of the `HttpsProxyAgent` class with the proxy server information
+
+                    var cookie = self.cookie;
+                    if(destinationObj !== undefined) {
+                        destination.path = destinationObj.path;
+                        searchReq = destinationObj.req;
+                        cookie = destinationObj.cookie;
+                    }
 
                     //console.log(searchReq);
                     httpsRequest = Https.request({
@@ -164,7 +179,9 @@ var Parser = require('parse5').Parser,
                         gzip: true,
                         headers: {
                             "Content-Type": "text/plain;charset=utf-8",
-                            "Set-Cookie": "spravka=dD0xNDA5NjQzNzI4O2k9MTc3LjM4LjI0MC4xMzA7dT0xNDA5NjQzNzI4MDA4OTkyMzU3O2g9NTk4Zjg3YWQ4NjFlZjEwNmI4YWYyZTljNzNjOTJmZWE="
+                            "Set-Cookie": cookie + "; domain=.yandex.ua; path=/;",
+                            "domain": ".yandex.ua",
+                            "path":"/"
                         },
 
                         // ... just add the special agent:
@@ -181,6 +198,24 @@ var Parser = require('parse5').Parser,
 
                         if(res.statusCode === 302 && isYandex) {
                             console.log("302 LINK - "+decodeURIComponent(res.headers.location));
+                            var redirect = decodeURIComponent(res.headers.location);
+                            if(!redirect.match(/captcha/)) {
+                                var redirectObj = redirect.split("?");
+                                console.info("MAKE ADDITIONAL REQ!!!");
+                                var reqObj = {
+                                    //path: redirectObj[0],
+                                    path: 'pass.yandex.ua',
+                                    req: redirect.substr(redirectObj[0].length+1),
+                                    cookie: res.headers['set-cookie'].join("; ")
+                                };
+
+                                self.grab(keyword, proxy, response, true, limit+1, reqObj).then(function(res) {
+
+                                });
+
+                                console.info("END ADDITIONAL REQ!!!");
+                            }
+
 
                             // make data check
                             //var resultChecking  = antigate.process(res.headers.location);
@@ -193,7 +228,12 @@ var Parser = require('parse5').Parser,
 
                         }
 
+                        console.log("COOKIE - "+self.cookie);
+
                         if(res.statusCode !== 200) {
+
+                            console.log("CODE: - "+res.statusCode);
+
                             response.errorStack.push(JSON.stringify(res.headers));
                             if(response.errorStack.length === limit) decline(response);
                             return;
@@ -208,6 +248,11 @@ var Parser = require('parse5').Parser,
                         })
                         .on('end', function() {
                             console.log("-- END REQUEST --");
+
+
+                            console.log(chunked);
+
+                            return;
                             response.data = self.parse(chunked);
 
                             neo4j.publishLinks(response.data, keyword);
@@ -269,6 +314,7 @@ var Parser = require('parse5').Parser,
         getRandomArbitrary: function(min, max) {
             return Math.ceil(Math.random() * (max - min) + min);
         },
+        cookie: "",
         proxy: function(keyword, attempts, isYandex) {
 
             var self = this,
@@ -297,14 +343,20 @@ var Parser = require('parse5').Parser,
                 "http://203.174.44.26:80",
                 "http://69.59.153.180:80",
                 "http://82.145.210.160:80"
-            ], promises = [], self = this, response, proxy, limit = isYandex !== undefined ? 10 : 5, rangeStep = isYandex !== undefined ? 1000 : 2000,
+            ], promises = [], self = this, response, proxy, limit = isYandex !== undefined ? 1 : 5, rangeStep = isYandex !== undefined ? 1000 : 2000,
             responseStack = {errorStack: [], data:null};
             //proxies = ["http://86.96.229.68:8888",
             //"http://41.75.81.42:80",
             //"http://68.142.136.252:80",
             //"http://203.174.44.26:80",
             //"http://195.50.71.239:80"];
-            return new Promise(function(resolve, decline) {
+            return new Promise(function (resolve, decline) {
+
+
+                self.getYandexCookies().then(function (res) {
+                    self.cookie = res;
+                });
+
 
                 self.getProxies(self.getRandomArbitrary(1,rangeStep), true, limit).then(function(response) {
                      proxies = response;
@@ -326,7 +378,9 @@ var Parser = require('parse5').Parser,
                         console.log("PROXY RACE ERROR - ATTEMPT - "+attempts);
                         ++attempts;
 
-                        if(attempts < config.parser.maxAttempts) {
+                        var maxAttempts = config.parser.maxAttempts;
+                        if(isYandex) maxAttempts = 10;
+                        if(attempts < maxAttempts) {
                             return self.proxy(keyword, attempts, isYandex);
                         } else {
 
@@ -408,6 +462,221 @@ var Parser = require('parse5').Parser,
                     return null;
                 });
                 console.log("request done!");
+                request.end();
+            });
+        },
+        getYandexCookies: function() {
+
+                return new Promise(function(resolve, reject) {
+                    var options = {
+                            host: "rank.ria.com",
+                            port: 10101,
+                            path: "/act?role=fm&type=cookies&pass=nD54zM1",
+                            method: 'GET'
+                        },
+                        raw = "",
+                        result,
+
+                        response = [], index, tmp, tmpObj, tmpBlock,
+                        request = Http.request(options, function (resp) {
+                            if (resp.statusCode !== 200) {
+                                reject({"error": "Error in request!", raw: resp});
+                                //yield null;
+                                return null;
+                            }
+                            resp.setEncoding('utf8');
+                            resp.on('data', function (chunk) {
+                                raw += chunk;
+                            });
+
+                            resp.on('end', function () {
+                                result = JSON.parse(raw);
+                                //console.log(result);
+                                if(result.data === undefined) {
+                                    reject("Empty cookie data!");
+                                    return null;
+                                }
+
+                                tmp = JSON.parse(result.data);
+                                tmpBlock = (tmp['.yandex.ua'] !== undefined) ? tmp['.yandex.ua']['/'] : tmp['yandex.ua']['/'];
+
+                                //console.log(tmpBlock);
+
+                                for(index in tmpBlock) {
+                                    tmpObj = tmpBlock[index];
+                                    response.push(tmpObj.name +"="+ tmpObj.value);
+                                }
+                                resolve(response.join("; "));
+                            });
+                        });
+
+                    request.on('error', function (e) {
+                        reject('problem with request: ' + e.message);
+                        return null;
+                    });
+                    console.log("request done!");
+                    request.end();
+                });
+        },
+        yandexXml: function(keyword, onlyHighLigth) {
+            var self = this, searchResults= [], doc, index = 1, highlight = [], tmpHightlight = {};
+            return new Promise(function(resolve, reject) {
+                self.makeReqest(
+                        "yandex.ru",
+                        443,
+                        "/search/xml?maxpassages=5&lr=187&groupby=attr%3D%22%22.mode%3Dflat.groups-on-page%3D100.docs-in-group%3D1&user=nikita-ezerscky&key=03.200669049:78961e5072b108e92ca58efe5519cd7d&query="+encodeURIComponent(keyword))
+                    .then(function(resp) {
+                        if(resp.error) reject(resp.error);
+
+                        parseString(resp.data, function(err, result) {
+                            if(err) reject(err);
+
+                            if(result.yandexsearch.response[0].error !== undefined) {
+                                reject(result.yandexsearch.response[0].error);
+                                return;
+                            }
+
+                            result.yandexsearch.response[0].results[0].grouping[0].group.map(function(item) {
+                                doc = item.doc[0];
+                                highlight = self.parseHighlight(doc.title, highlight, tmpHightlight);
+                                highlight = self.parseHighlight(doc.passages, highlight, tmpHightlight);
+                                searchResults.push({
+                                    src: doc.url[0],
+                                    domain: doc.domain[0],
+                                    highlight: highlight,
+                                    relevance: doc.relevance[0],
+                                    position: index
+                                });
+                                index++;
+
+                            });
+
+                            if(onlyHighLigth) {
+                                self.sendHighlight(keyword, highlight, resolve);
+                                return;
+                            }
+
+                            //console.log(searchResults);
+                        });
+
+                })
+                .catch(function(err) {
+                    console.error(err);
+                    reject(err);
+                });
+            })
+        },
+        yandexXmlLimits: function() {
+            var self = this, searchResults= [], doc, index = 1, highlight = [], tmpHightlight = {};
+            return new Promise(function(resolve, reject) {
+                self.makeReqest(
+                    "yandex.ru",
+                    443,
+                    "/search/xml?action=limits-info&user=nikita-ezerscky&key=03.200669049:78961e5072b108e92ca58efe5519cd7d")
+                    .then(function(resp) {
+
+                        if(resp.error) reject(resp.error);
+
+                        parseString(resp.data, function(err, result) {
+                            if(err) reject(err);
+
+                            if(!result.yandexsearch.response) {
+                                reject("no data");
+                                return;
+                            }
+
+                            if(result.yandexsearch.response[0].error !== undefined) {
+                                reject(result.yandexsearch.response[0].error);
+                                return;
+                            }
+
+                            var limits = result.yandexsearch.response[0].limits[0]['time-interval'];
+                            resolve(limits.map(function (limit) {
+                                return {
+                                        limit: limit['_'],
+                                        period: limit['$']
+                                    };
+                            }));
+
+                        });
+
+                    })
+                    .catch(function(err) {
+                        console.log(err);
+                        reject(err);
+                    });
+            });
+        },
+        sendHighlight: function(keyword, highlight, resolve) {
+            //console.log(keyword);
+            //console.log(highlight);
+
+            this.chan().send({log: {level:config.log.levels.INFO,
+                message: "по запросу '" + decodeURIComponent(keyword) + "' найдены синонимы",
+                data: {
+                    keyword: decodeURIComponent(keyword)
+                }}});
+            neo4j.insertSynonims(keyword, highlight);
+            resolve("OK");
+        },
+        parseHighlight: function(obj, highlight, tmpHightlight) {
+            //console.log(obj);
+            var index, currHighlight = [], currObject, lowerised;
+            for(index in obj) {
+                currObject = obj[index];
+                if(index === 'hlword') {
+                    lowerised = currObject[0].toLocaleLowerCase();
+                    if(tmpHightlight[lowerised]) continue;
+
+                    tmpHightlight[lowerised] = true;
+                    currHighlight.push(lowerised);
+                    continue;
+                }
+                if(typeof currObject === 'string') continue;
+
+                highlight = this.parseHighlight(currObject, highlight, tmpHightlight);
+            }
+            if(currHighlight.length) highlight = highlight.concat(currHighlight);
+
+            return highlight;
+        },
+        makeReqest: function(host, port, path) {
+
+            return new Promise(function(resolve, reject) {
+                var options = {
+                        host: host,
+                        port: port,
+                        path: path,
+                        method: 'GET'
+                    },
+                    raw = "",
+                    result,
+                    request = Https.request(options, function (resp) {
+                        if (resp.statusCode !== 200) {
+                            console.log(resp);
+
+                            reject({"error": "Error in request!", raw: resp});
+                            return null;
+                        }
+                        resp.setEncoding('utf8');
+                        resp.on('data', function (chunk) {
+                            raw += chunk;
+                        });
+                        resp.on('end', function () {
+                            if(raw === undefined) {
+                                reject({"error": "Empty data!"});
+                                return null;
+                            }
+
+                            resolve({error: null, data:raw});
+                        });
+                    });
+
+                request.on('error', function (e) {
+                    reject({"error":'problem with request: ' + e.message});
+                    return null;
+                });
+                console.log("end");
                 request.end();
             });
         }
