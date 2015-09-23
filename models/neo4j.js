@@ -107,6 +107,7 @@ neo4j = {
         });
     },
     makeReq: function(queryParams, resolve, reject) {
+
         var request = http.request(queryParams, function (resp) {
 
 
@@ -335,7 +336,10 @@ neo4j = {
         return new Promise(function(resolve, reject) {
             ASQ(function(done) {
 
-                if(args.newCheck !== undefined) done(null);
+                if(args.newCheck !== undefined) {
+                    done(null);
+                    return;
+                }
 
                 if(args.target === undefined) reject("Error: target param is not provided");
 
@@ -358,8 +362,14 @@ neo4j = {
                         resolve(resultData);
                     });
 
+                    var tmpObj = {};
                     resultData.items = response.results[0].data.map(function(item) {
                         return item.row[0];
+                    }).filter(function(item) {
+                        if(!tmpObj[item.src]) {
+                            tmpObj[item.src] = true;
+                            return true;
+                        }
                     });
 
                 }).catch(function(err) {
@@ -370,7 +380,6 @@ neo4j = {
 
             })
                 .then(function(done, keywords) {
-
                     var options = {
                         host: config.api,
                         port: 3000,
@@ -382,8 +391,62 @@ neo4j = {
         });
     },
 
+    querySynonims: function(args, isCount) {
+        var self = this, query, limit = "", index, order = "asc", orderby = "keyword.src", returnVal = !isCount ? "DISTINCT synonim, keyword" : "count(DISTINCT synonim)";
+
+        return new Promise(function(resolve, reject) {
+            if(args.sorting !== undefined) {
+                for(index in args.sorting) {
+                    orderby = index;
+                    order = args.sorting[index];
+                }
+            }
+
+            if(args.count !== undefined && !isCount) {
+                limit = " LIMIT " + args.count;
+            }
+            if(args.page !== undefined && args.page > 1 && !isCount) {
+                limit = " SKIP " + (args.page-1) * (args.count || 10) + limit;
+            }
+
+            //query = "MATCH (n:Link)-[:CONTAINS]->()-[:TOP10]-()-[:CONTAINS]-(keyword)-[:COMES]-(synonim) WHERE n.src = '"+args.target+"'  RETURN  DISTINCT synonim, keyword ORDER BY "+orderby+" "+order + limit;
+            query = "MATCH (n:Link  {src: '"+args.target+"'})-[*1..3]-(keyword:Keyword)-[:COMES]-(synonim) RETURN  "+returnVal + (!isCount ? (" ORDER BY "+orderby+" "+order + limit) : "");
+            //console.log(query);
+            self.cypher(query, null, function(err, response) {
+                if(err) {
+                    reject(err);
+                    return;
+                }
+
+                if(response.errors !== undefined && response.errors.length > 0) {
+                    reject(response.errors);
+                    return;
+                }
+
+                if(response.results[0] !== undefined && response.results[0].data !== undefined && response.results[0].data.length) {
+
+                    if(isCount) {
+                        resolve(response.results[0].data[0].row[0]);
+                        return;
+                    }
+
+                    var resp = response.results[0].data.map(function(item) {
+                        return {
+                            synonim: item.row[0].src,
+                            keyword: item.row[1].src
+                        };
+                    });
+                    resolve(resp);
+
+                    return;
+                }
+
+                resolve(null);
+            });
+        });
+    },
     checkSynopsis: function(args) {
-        var self = this, promises = [], keyword, query, limit = "";
+        var self = this, promises = [], keyword, responseData= {};
 
         return new Promise(function(resolve, reject) {
             ASQ(function(done) {
@@ -399,41 +462,24 @@ neo4j = {
                     return;
                 }
 
-                if(args.count !== undefined) {
-                    limit = " LIMIT " + args.count;
-                }
-                if(args.page !== undefined && args.page > 1) {
-
-                    limit = " SKIP " + (args.page-1) * (args.count || 10) + limit;
-                }
-
-                query = "MATCH (n:Link)-[:CONTAINS]->()-[:TOP10]-()-[:CONTAINS]-(keyword)-[:COMES]-(syno) WHERE n.src = '"+args.target+"'  RETURN  DISTINCT syno.src, keyword " + limit;
-                console.log(query);
-                self.cypher(query, null, function(err, response) {
-                    if(err) {
+                // MAIN
+                ASQ(function(done) {
+                    self.querySynonims(args).then(function (resp) {
+                        responseData.data = resp;
+                        done(true);
+                    }).catch(function (err) {
                         reject(err);
-                        return;
-                    }
-
-                    if(response.errors !== undefined && response.errors.length > 0) {
-                        reject(response.errors);
-                        return;
-                    }
-
-                    if(response.results[0] !== undefined && response.results[0].data !== undefined && response.results[0].data.length) {
-
-                        var resp = {data: response.results[0].data.map(function(item) {
-                            return {
-                                synonim: item.row[0],
-                                keyword: item.row[1].src
-                            };
-                        }), total: 100};
-                        resolve(resp);
-
-                        return;
-                    }
-
-                    resolve(null);
+                    });
+                })
+                .then(function(done) {
+                    // COUNT
+                    self.querySynonims(args, true).then(function(resp) {
+                        console.log(resp);
+                        responseData.total = resp;
+                        resolve(responseData);
+                    }).catch(function(err) {
+                        reject(err);
+                    });
                 });
 
             })
@@ -452,9 +498,9 @@ neo4j = {
                     if(response.errors.length) reject(response.errors);
 
                     var items = response.results[0].data.map(function(item) {
-                        return item.row[0];
+                        return item.row[0].src;
                     });
-                    console.log(items);
+                    done(items);
 
                 }).catch(function(err) {
                     reject(err);
@@ -577,9 +623,9 @@ neo4j = {
         this.findKeywordsLinks({target: target})
             .then(function(concurrents) {
                 console.log(concurrents);
-                
+
                 for(concurrent of concurrents.data) {
-                    promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent), newCheck: true}));
+                    promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent.src), newCheck: true}));
                 }
 
                 Promise.all(promises)
@@ -675,6 +721,7 @@ neo4j = {
         this.cypher(query, null, function(err, response) {
             console.log(err);
             console.log(response);
+            return true;
         });
     },
     buildPaginator: function(link, additional, isCount) {
@@ -703,7 +750,8 @@ neo4j = {
         return this.request(query);
     },
     concurrentKeywords: function(link, additional, isCount) {
-        var query = "MATCH (n:Link)-[:CONTAINS]->()-[:TOP10]-(concurrent)-[:CONTAINS]-(keyword) WHERE n.src = '"+link+"' RETURN " + this.buildPaginator(link, additional, isCount);
+        //var query = "MATCH (n:Link)-[:CONTAINS]->()-[:TOP10]-(concurrent)-[:CONTAINS]-(keyword) WHERE n.src = '"+link+"' RETURN " + this.buildPaginator(link, additional, isCount);
+        var query = "MATCH (n:Link {src: '"+link+"'})-[*1..3]-(keyword:Keyword) RETURN " + this.buildPaginator(link, additional, isCount);
 
         //console.log(query);
         return this.request(query);

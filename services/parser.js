@@ -1,11 +1,16 @@
-var Parser = require('parse5').Parser,
+var parseLib = require('parse5'),
+    Parser = parseLib.Parser,
+    Request = require('request'),
     Https = require('https'),
     Http = require('http'),
     mysql = require('../models/mysql.js'),
     antigate = require('./anti-gate.js'),
+    RateLimiter = require('limiter').RateLimiter,
     parseString = require('xml2js').parseString,
     config = require('../config.js'),
     neo4j = require('../models/neo4j.js'),
+    //couch = require('../models/couch.js'),
+    elasticsearch = require('../models/elastic.js'),
     io = require('socket.io-client'),
     fm = require('../models/files.js'),
     HttpsProxyAgent = require('https-proxy-agent'),
@@ -64,7 +69,17 @@ var Parser = require('parse5').Parser,
                 doc = pInstance.parse(content);
                 var temp = [], temporary;
 
-            var searchBlock = this.findRecurs(doc.childNodes[1]).childNodes[0].childNodes[0];
+            var searchBlock = this.findRecurs(doc.childNodes[1], comparator).childNodes[0].childNodes[0];
+
+            function comparator(content) {
+                if(content.nodeName == "div"
+                    && content.attrs.length == 1
+                    && content.attrs[0].name == 'id'
+                    && content.attrs[0].value == "search") {
+                    return content;
+                }
+                return null;
+            }
             //console.log(searchBlock);
 
             temporary = this.getResults(searchBlock.childNodes, results);
@@ -110,22 +125,30 @@ var Parser = require('parse5').Parser,
 
             return link;
         },
-        findRecurs: function(content) {
+        findRecurs: function(content, comparator, selector, push) {
+
             var resp;
             if(content.childNodes == undefined) return;
 
-            if(content.nodeName == "div"
-                && content.attrs.length == 1
-                && content.attrs[0].name == 'id'
-                && content.attrs[0].value == "search") {
-                return content;
+            if(comparator(content, selector)) {
+                if(push) {
+                    push.push(content);
+                } else {
+                    return content;
+                }
             }
 
             for(item of content.childNodes) {
-                resp = this.findRecurs(item);
+                resp = this.findRecurs(item, comparator, selector, push);
                 if(!resp || !resp.childNodes) continue;
-                return resp;
+
+                if(push) {
+                    push.push(resp);
+                } else {
+                    return resp;
+                }
             }
+            return push;
         },
         grab: function (keyword, proxy, response, isYandex, limit, destinationObj) {
             var self = this;
@@ -150,10 +173,6 @@ var Parser = require('parse5').Parser,
                     }, 20000),
                     request = self.buildRequest(proxy, destination);
 
-                    if(!self.cookie) {
-                        decline('COOKIE IS NOT SETUPED');
-                        return;
-                    }
 
                     if(destination.secure === true) {
                   // create an instance of the `HttpsProxyAgent` class with the proxy server information
@@ -196,39 +215,39 @@ var Parser = require('parse5').Parser,
                         console.log("statusCode: ", res.statusCode);
                         console.log("headers: ", res.headers);
 
-                        if(res.statusCode === 302 && isYandex) {
-                            console.log("302 LINK - "+decodeURIComponent(res.headers.location));
-                            var redirect = decodeURIComponent(res.headers.location);
-                            if(!redirect.match(/captcha/)) {
-                                var redirectObj = redirect.split("?");
-                                console.info("MAKE ADDITIONAL REQ!!!");
-                                var reqObj = {
-                                    //path: redirectObj[0],
-                                    path: 'pass.yandex.ua',
-                                    req: redirect.substr(redirectObj[0].length+1),
-                                    cookie: res.headers['set-cookie'].join("; ")
-                                };
+                        //if(res.statusCode === 302 && isYandex) {
+                        //    console.log("302 LINK - "+decodeURIComponent(res.headers.location));
+                        //    var redirect = decodeURIComponent(res.headers.location);
+                        //    if(!redirect.match(/captcha/)) {
+                        //        var redirectObj = redirect.split("?");
+                        //        console.info("MAKE ADDITIONAL REQ!!!");
+                        //        var reqObj = {
+                        //            //path: redirectObj[0],
+                        //            path: 'pass.yandex.ua',
+                        //            req: redirect.substr(redirectObj[0].length+1),
+                        //            cookie: res.headers['set-cookie'].join("; ")
+                        //        };
+                        //
+                        //        self.grab(keyword, proxy, response, true, limit+1, reqObj).then(function(res) {
+                        //
+                        //        });
+                        //
+                        //        console.info("END ADDITIONAL REQ!!!");
+                        //    }
+                        //
+                        //
+                        //    // make data check
+                        //    //var resultChecking  = antigate.process(res.headers.location);
+                        //    //resultChecking.then(function(checked) {
+                        //    //      console.log("on CAPTCHA: ", checked);
+                        //    //}).
+                        //    //catch(function(err) {
+                        //    //    console.log("on CAPTCHA ERROR: ", err);
+                        //    //})
+                        //
+                        //}
 
-                                self.grab(keyword, proxy, response, true, limit+1, reqObj).then(function(res) {
-
-                                });
-
-                                console.info("END ADDITIONAL REQ!!!");
-                            }
-
-
-                            // make data check
-                            //var resultChecking  = antigate.process(res.headers.location);
-                            //resultChecking.then(function(checked) {
-                            //      console.log("on CAPTCHA: ", checked);
-                            //}).
-                            //catch(function(err) {
-                            //    console.log("on CAPTCHA ERROR: ", err);
-                            //})
-
-                        }
-
-                        console.log("COOKIE - "+self.cookie);
+                        //console.log("COOKIE - "+self.cookie);
 
                         if(res.statusCode !== 200) {
 
@@ -249,10 +268,6 @@ var Parser = require('parse5').Parser,
                         .on('end', function() {
                             console.log("-- END REQUEST --");
 
-
-                            console.log(chunked);
-
-                            return;
                             response.data = self.parse(chunked);
 
                             neo4j.publishLinks(response.data, keyword);
@@ -353,9 +368,9 @@ var Parser = require('parse5').Parser,
             return new Promise(function (resolve, decline) {
 
 
-                self.getYandexCookies().then(function (res) {
+                /*self.getYandexCookies().then(function (res) {
                     self.cookie = res;
-                });
+                });*/
 
 
                 self.getProxies(self.getRandomArbitrary(1,rangeStep), true, limit).then(function(response) {
@@ -616,8 +631,7 @@ var Parser = require('parse5').Parser,
                 data: {
                     keyword: decodeURIComponent(keyword)
                 }}});
-            neo4j.insertSynonims(keyword, highlight);
-            resolve("OK");
+            resolve(neo4j.insertSynonims(keyword, highlight));
         },
         parseHighlight: function(obj, highlight, tmpHightlight) {
             //console.log(obj);
@@ -640,7 +654,161 @@ var Parser = require('parse5').Parser,
 
             return highlight;
         },
-        makeReqest: function(host, port, path) {
+
+
+        urlChecker: function(target, args) {
+            var promised = [], self = this, response = {errorStack: [], data:null},
+                pathes = (args.path instanceof Array) ? args.path : [args.path],
+                limiter = new RateLimiter(100, 'minute'), langIndex, lang, targetSrc="";
+            //this.getProxies(this.getRandomArbitrary(1, 2000), true, 5).then(function(list) {
+
+            if (args.parent && args.parent !== null) {
+                elasticsearch.init();
+                elasticsearch.scroll({
+                    queryParams: {parent: args.parent},
+                    fields: ['link'],
+                    limit: 100
+                }, makeElasticReq);
+                return;
+            }
+
+            pathes = setupUkLang(pathes);
+            self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response});
+
+            function makeElasticReq(searchResponse) {
+                var pathes = [];
+                return function () {
+                    pathes = searchResponse.map(function (item) {
+                        return item['doc.link'][0];
+                    });
+                    pathes = setupUkLang(pathes);
+                    self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response});
+                }
+            }
+
+            function setupUkLang(items) {
+                return items.concat(items.map(function(link) {
+                    return "/uk/"+link.replace(/^\/{1,}/g, "");
+                }));
+            }
+        },
+        checkByLimiter: function(limiter, args){
+            var self = this, pathes = args.pathes, target = args.target, response = args.response;
+
+            limiter.removeTokens(pathes.length, function(err, remainingRequests) {
+                if(err) {
+                    console.log(err);
+                    console.log("RATE LIMIT");
+                    return;
+                }
+
+                console.log("REMAIN REQ - "+remainingRequests);
+                console.log("COUNT REQ - "+pathes.length);
+
+                pathes.forEach(function(path) {
+
+
+                    self.httpsRequest(target, "/"+path, null, response)
+                        .then(function(resp) {
+                            if(!resp.data) return;
+
+                            self.parseFactory(target, resp.data, path)();
+                        })
+                        .catch(function(err) {
+                            //console.log(err);
+                        });
+                });
+            });
+        },
+
+        httpsRequest: function(target, path, proxy, response, limit) {
+            var self = this, chunked = "", target = target.replace(/(https|http):\/\//g, "");
+            return new Promise(function(resolve, decline) {
+
+                var timeout = setTimeout(function(){
+                    console.log("REQ TIMEOUT REACHED!!!");
+                    console.log("FOR " + target + " - " + proxy);
+                    clearTimeout(timeout);
+                    response.errorStack.push("REQ TIMEOUT REACHED FOR PROXY - "+proxy);
+                    if(response.errorStack.length === limit) decline(response);
+                }, 20000),
+                    limit = limit || 5,
+                    request = (proxy) ? self.buildRequest(proxy, target) : null,
+                    httpsRequest = Https.request({
+                        // like you'd do it usually...
+                        hostname: target,
+                        host: target,
+                        port: 443,
+                        method: 'GET',
+                        path: path,
+                        timeout: 10000,
+                        followRedirect: true,
+                        maxRedirects: 5,
+                        gzip: true,
+                        headers: {
+                            "Content-Type": "text/plain;charset=utf-8",
+                            //"Set-Cookie": cookie + "; domain=.yandex.ua; path=/;",
+                            //"domain": ".yandex.ua",
+                            //"path":"/"
+                        }
+                        // ... just add the special agent:
+                        //agent: request
+                    }, function (res) {
+
+                        clearTimeout(timeout);
+                        if(res.statusCode !== 200) {
+                            console.log("CODE: - "+res.statusCode);
+
+                            console.log(res);
+
+                            response.errorStack.push(JSON.stringify(res.headers));
+                            if(response.errorStack.length === limit) decline(response);
+                            return;
+                        };
+
+                        res.setEncoding('utf8');
+                        res.on('data', function(resp) {
+                            console.log("-- DATA CHUNK --");
+                            chunked += resp.toString();
+                        })
+                        .on('end', function() {
+                            console.log("-- END REQUEST --");
+
+                            response.data = chunked;
+
+                            //self.chan().send({log: {level:config.log.levels.DATA,
+                            //    message: "KEYWORD '" + decodeURIComponent(keyword) + "' done",
+                            //    data: {
+                            //        keyword: decodeURIComponent(keyword)
+                            //    }}});
+
+                            resolve(response);
+                        })
+                        .on('error', function(err) {
+                            console.error("ON request: " + target);
+
+                            console.log(err);
+                            response.errorStack.push(err);
+                            if(response.errorStack.length === limit) decline(response);
+                        });
+                    });
+                    httpsRequest.on('error', function(err) {
+                        console.error("ON connection: " + target);
+                        response.errorStack.push(err);
+
+                        if(response.errorStack.length === limit) decline(response);
+                        console.log(err);
+
+                        clearTimeout(timeout);
+
+                    });
+                    console.log("-- ended --");
+                    httpsRequest.end();
+            });
+        },
+
+
+        makeReqest: function(host, port, path, reqObj) {
 
             return new Promise(function(resolve, reject) {
                 var options = {
@@ -650,8 +818,9 @@ var Parser = require('parse5').Parser,
                         method: 'GET'
                     },
                     raw = "",
+                    reqObj = reqObj || Https,
                     result,
-                    request = Https.request(options, function (resp) {
+                    request = reqObj.request(options, function (resp) {
                         if (resp.statusCode !== 200) {
                             console.log(resp);
 
@@ -679,6 +848,334 @@ var Parser = require('parse5').Parser,
                 console.log("end");
                 request.end();
             });
+        },
+
+
+
+        // BLOCK PARSERS
+        checkSeo: function(results, pathChunk, lang) {
+            pathChunk = pathChunk.replace(/\/uk/g, "");
+            var path = config.parser.seoDB.path + pathChunk, reqBody, self = this;
+
+
+            Request('http://'+config.parser.seoDB.host+":"+config.parser.seoDB.port+path, function (error, response, body) {
+                if(error || response.statusCode !== 200) {
+                    console.log(error);
+                }
+                reqBody = JSON.parse(body);
+
+                if(reqBody.code !== 200) {
+                    console.log(reqBody);
+                    return;
+                }
+
+                self.checkSeoBlocks(reqBody.doc.blocks[lang], results, lang);
+
+            });
+        },
+        checkSeoBlocks: function(doc, blocks, lang) {
+            if(!doc) {
+                throw new Error('blocks element not found in - '+doc.link);
+            }
+
+            var keys = Object.keys(blocks), keysLen = keys.length, index, value, complexData = {}, blockItem, block,
+                notToCheck = ['img', 'canonical', 'robots'], checkBlocks = {};
+            for(index=0;index<keysLen;index++) {
+                value = keys[index];
+                block = blocks[value];
+
+                if(~notToCheck.indexOf(value)) {
+                    complexData[value] = (value == 'img') ? block.counters : block;
+                    continue;
+                }
+
+                if(value == "seotext" && block.length) {
+                    block = decodeStringElemens(block.replace(/\n/g, ""));
+                    doc[value] = decodeStringElemens(doc[value].replace(/\n/g, ""));
+                }
+
+                if(typeof block !== "string") {
+                    if(!block.length) {
+                        complexData[value] = "empty";
+                        continue;
+                    }
+
+                    if(block.length > 1) {
+                        complexData[value] = blocks[value];
+                        continue;
+                    }
+                }
+
+                if(!block) {
+                    complexData[value] = "empty";
+                    continue;
+                }
+
+                blockItem = (typeof block !== "string") ? block[0] : block;
+                complexData[value] = (doc[value] == blockItem);
+            }
+
+
+            function decodeStringElemens(text) {
+                var addCharacterEntities = {
+                    '&amp;'     :   '&',
+                    '&gt;'      :   '>',
+                    '&lt;'      :   '<',
+                    '&quot;'    :   '"',
+                    '&#39;'     :   "'"
+                }, index;
+                for(index in addCharacterEntities) {
+                    text = text.replace(new RegExp(index), addCharacterEntities[index]);
+                }
+                return text;
+            }
+
+            checkBlocks[lang] = complexData;
+            console.log(checkBlocks);
+
+        },
+
+
+        mainParseSelectors: function() {
+            return {
+                "title": {
+                    //"attrs": [{
+                    "type": "nodeName",
+                    "value": "title"
+                    //}]
+                },
+                "h1": {
+                    "type": "nodeName",
+                    "value": "h1"
+                },
+                "description": {
+                    "type": "nodeName",
+                    "value": "meta",
+                    "attrs": [
+                        {
+                            "type" : "name",
+                            "value" : "description"
+                        }
+                    ]
+                },
+                "canonical": {
+                    "type": "nodeName",
+                    "value": "link",
+                    "attrs": [
+                        {
+                            "type" : "rel",
+                            "value" : "canonical"
+                        }
+                    ]
+                },
+                "img": {
+                    "type": "nodeName",
+                    "value": "img"
+                },
+                "robots": {
+                    "type": "nodeName",
+                    "value": "meta",
+                    "attrs": [
+                        {
+                            "type" : "name",
+                            "value" : "robots"
+                        }
+                    ]
+                }
+            };
+        },
+
+        // PROJECTS PARSERS
+        /**
+         * RIA COM
+         * @param doc - html parse5 object document
+         */
+        parseBlocksRia: function(doc, chunk, lang) {
+
+            var selectors = this.mainParseSelectors(), serializerLib = new parseLib.Serializer();
+
+            selectors["seotext"] = {
+                    "type": "nodeName",
+                    "value": "div",
+                    "attrs": [{
+                        "type" : "class",
+                        "value":"informer-block-main-bg hide"
+                    }]
+                };
+
+            var results = [], parseResults = this.parsePage(selectors, doc), index, result;
+
+            for(index in parseResults) {
+                try {
+                    results[index] = this.returnParsedData(index, parseResults[index], defaultFunc);
+                } catch (err) {
+                    console.log(err);
+                }
+            }
+
+
+            this.checkSeo(results, chunk, lang);
+            //couch.init('seo');
+
+            function defaultFunc(block) {
+                if(!block) return null;
+                return serializerLib.serialize(block[0]);
+            }
+
+        },
+        // END
+
+        returnParsedData: function(index, block, defaultFunc) {
+            if(!block.length) return [];
+
+            var indexArr, valueArr = [], imgBlock, imgItem = {}, tmpImages = {};
+            switch(index) {
+              case "title":
+                  valueArr = block[0].childNodes[0].value;
+                  break;
+              case "h1":
+                  valueArr = block[0].childNodes[0].value.match(/«(.*)»/g);
+                  valueArr = valueArr[0].replace(/\«|\»/g, "");
+                  break;
+              case "description":
+                  valueArr = block[0].attrs.filter(this.findItemDesc)[0].value;
+                  break;
+              case "canonical":
+                  for(indexArr in block) {
+                      valueArr.push(block[indexArr].attrs.filter(this.findItemCanonical)[0].value);
+                  }
+
+                  break;
+              case "img":
+                  var imgCounters = {}, container, self = this;
+                  for(indexArr of block) {
+                      container = [];
+                      container = self.filterResults(indexArr, tmpImages)();
+                      if(!container[0]) continue;
+
+                      if(container[0].src) !imgCounters.src ? imgCounters.src = 1 : imgCounters.src++;
+                      if(container[0].title) !imgCounters.title ? imgCounters.title = 1 : imgCounters.title++;
+                      if(container[0].alt) !imgCounters.alt ? imgCounters.alt = 1 : imgCounters.alt++;
+
+                      valueArr.push(container[0]);
+                  }
+                  valueArr = {data: valueArr, counters: imgCounters};
+                  break;
+                case "robots":
+                    valueArr = block[0].attrs.filter(this.findItemDesc)[0].value;
+                    break;
+              default:
+                  return defaultFunc(block);
+            }
+
+            return valueArr;
+        },
+        filterResults: function(indexArr, tmpImages) {
+            var self = this, imgItem = {};
+            return function() {
+                return indexArr.attrs.filter(self.findItemImg).map(function(img) {
+                    imgItem[img.name] = img.value;
+                    return imgItem;
+                })
+                .filter(function(item) {
+                    if(!tmpImages[item.src]) {
+                        tmpImages[item.src] = true;
+                        return true;
+                    }
+                });
+            }
+        },
+
+        // FILTERS
+        findItemDesc: function(value){
+            if(value.name === 'content') return true;
+        },
+        findItemCanonical: function(value){
+            if(value.name === 'href') return true;
+        },
+        findItemImg: function(value){
+            var allowed = ['src', 'title', 'alt'];
+            if(~allowed.indexOf(value.name)) return true;
+        },
+        // END
+
+        parsePage: function(selectors, doc) {
+            var results = [], attrs, i, attrLen, hit, selectorIndex, selector, searchBlock = {};
+            try {
+                for(selectorIndex in selectors) {
+                    selector = selectors[selectorIndex];
+                    results = [];
+
+                    searchBlock[selectorIndex] = this.findRecurs(doc.childNodes[1], comparator, selector, results);
+                }
+            } catch(err) {
+                console.log(err);
+            }
+
+            function comparator(content, selector) {
+
+                if(selector["type"] !== undefined) {
+                    if(content[selector["type"]] == selector["value"]) {
+                        if(!selector["attrs"]) return content;
+                    } else {
+                        return null;
+                    }
+                }
+
+                attrs = content.attrs;
+                if(attrs.length > 1) {
+                    attrLen = attrs.length;
+
+                    for(i=0;i<attrLen;i++) {
+                        hit = returnIfGet(attrs[i], selector["attrs"]);
+                        if(!hit) continue;
+
+                        return content;
+                    }
+                } else {
+                    return returnIfGet(attrs[0], selector["attrs"]);
+                }
+                //}
+                function returnIfGet(attr, selectors) {
+
+                    if(!attr) return null;
+                    var selectorIndex, selectorItem;
+                    for(selectorIndex in selectors) {
+                        selectorItem = selectors[selectorIndex];
+                        if(
+                            attr.name == selectorItem.type
+                            && attr.value == selectorItem.value
+                        ) {
+                            return true;
+                        }
+
+                    }
+
+                    return null;
+                }
+
+                return null;
+            }
+
+            return searchBlock;
+        },
+
+        parseFactory: function(domain, raw, target) {
+            var lang = target.match(/\/uk\//g) ? "uk" : "ru";
+            domain = domain.replace(/((https|http):\/\/)|(\/{0,}uk(\/){0,})/g, "");
+            var map = {
+                "www.ria.com": "parseBlocksRia"
+                },
+                pInstance = new Parser();
+
+            try {
+                var doc = pInstance.parse(raw);
+            } catch(err) {
+                console.log(err);
+            }
+
+
+            return this[map[domain]](doc, target, lang);
         }
     };
 

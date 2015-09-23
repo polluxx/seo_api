@@ -29,24 +29,34 @@ var rabbit = require('rabbit.js'),
 
                         try {
                             var messageData = JSON.parse(JSON.parse(note)), index, params = [];
+
+
                             for (index in messageData) {
+
+                                //if(index == 'target') messageData[index] = encodeURIComponent(messageData[index]);
+
+
                                 params.push(index+"="+messageData[index]);
                             }
+
                         } catch (err) {
                             console.error(err);
                             return;
                         }
-
                             var query = params.join("&"),
                             options = {
                                 host: "localhost",
                                 port: 10101,
-                                path: '/act?'+query,
+                                path: '/act?'+encodeURI(query),
                                 method: 'GET'
                             },
                             raw = "",
                             items = [],
                             request = http.request(options, function (resp) {
+
+                                console.log(resp);
+                                return;
+
                                 if(resp.statusCode !== 200) {
                                     console.error(resp);
                                     return;
@@ -78,7 +88,7 @@ var rabbit = require('rabbit.js'),
 
             context.on('error', function(err) {
                 console.error(err);
-            })
+            });
             console.info("LISTENING");
         }
     };

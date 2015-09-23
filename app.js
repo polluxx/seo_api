@@ -71,6 +71,20 @@ var Prodvigator = require('./services/prodvigator'),
         });
     })
 
+    //RIA PARSERS
+    .add({role: 'parse', type: 'checker'}, function(args, done) {
+
+        if(!args.target || typeof args.target !== "string" || !args.path) {
+            done(null, {error: 'argument target or path is empty or isn\'t type of String'});
+        }
+
+        var target = decodeURIComponent(args.target).replace(/\/{1,}$|^\/{1,}/g, "");
+
+        Parser.urlChecker(target, args);
+
+        done(null, {data:"OK"});
+    })
+
     // PROXIES
     .add({role: 'mysql', type: 'proxies'}, function(args, done) {
         if(args.pass === undefined || args.pass !== "nD54zM1") done(true, {error: "you don't have permissions"});
@@ -185,6 +199,7 @@ var Prodvigator = require('./services/prodvigator'),
             console.log(args.target);
             console.log('---------------------------');
 
+
         neo4j.publishConcurrents(args.target);
         done(null, {args: args, data:null});
     })
@@ -194,7 +209,7 @@ var Prodvigator = require('./services/prodvigator'),
         }
 
         neo4j.publishConcurrentKeywords(args.target);
-        done(null, {args: args, data:null});
+        done(null, {data:"OK"});
     })
 
     // RABBIT
@@ -260,6 +275,13 @@ var Prodvigator = require('./services/prodvigator'),
         // query parameters as values for the action
         map:{
             pub: {GET: true}                // GET is the default
+        }
+    }})
+    .act('role:web',{use:{
+        prefix: '/parse',
+        pin: {role:'parse',type:'*'},
+        map:{
+            checker: {PUT: true, OPTIONS: true}
         }
     }})
 
