@@ -1,12 +1,12 @@
 // INIT packages
 'use strict';
-console.log('start');
-var Prodvigator = require('./services/prodvigator'),
+
+var Prodvigator = require('../services/prodvigator'),
 //Cassandra = require('./models/cassandra'),
-    Parser = require('./services/parser'),
-    rabbit = require('./services/rabbit'),
+    Parser = require('../services/parser'),
+    rabbit = require('../services/rabbit'),
     //mysql = require('./models/mysql.js'),
-    neo4j = require('./models/neo4j.js'),
+    neo4j = require('../models/neo4j.js'),
     //cors = require('cors'),
     co = require('co'),
     //app = require('express')(),
