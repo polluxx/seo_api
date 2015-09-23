@@ -869,13 +869,13 @@ var parseLib = require('parse5'),
                     return;
                 }
 
-                self.checkSeoBlocks(reqBody.doc.blocks[lang], results, lang);
+                self.checkSeoBlocks(reqBody.doc.blocks[lang], results, lang, reqBody.doc.link);
 
             });
         },
-        checkSeoBlocks: function(doc, blocks, lang) {
+        checkSeoBlocks: function(doc, blocks, lang, link) {
             if(!doc) {
-                throw new Error('blocks element not found in - '+doc.link);
+                throw new Error('blocks element not found in - '+link);
             }
 
             var keys = Object.keys(blocks), keysLen = keys.length, index, value, complexData = {}, blockItem, block,
@@ -931,7 +931,14 @@ var parseLib = require('parse5'),
             }
 
             checkBlocks[lang] = complexData;
+
+            this.chan().send({log: {level:config.log.levels.INFO,
+                message: "по запросу '" + decodeURIComponent(link) + "' язык:'"+lang+"' проверено сео",
+                data: {
+                    link: decodeURIComponent(link)
+                }}});
             console.log(checkBlocks);
+            console.log(doc);
 
         },
 
