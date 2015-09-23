@@ -330,6 +330,7 @@ var parseLib = require('parse5'),
             return Math.ceil(Math.random() * (max - min) + min);
         },
         cookie: "",
+        currentCheckedUrls: {total:0, processed:0},
         proxy: function(keyword, attempts, isYandex) {
 
             var self = this,
@@ -695,6 +696,7 @@ var parseLib = require('parse5'),
         checkByLimiter: function(limiter, args){
             var self = this, pathes = args.pathes, target = args.target, response = args.response;
 
+            this.currentCheckedUrls.total = pathes.length;
             limiter.removeTokens(pathes.length, function(err, remainingRequests) {
                 if(err) {
                     console.log(err);
@@ -932,13 +934,16 @@ var parseLib = require('parse5'),
 
             checkBlocks[lang] = complexData;
 
-            this.chan().send({log: {level:config.log.levels.INFO,
-                message: "по запросу '" + decodeURIComponent(link) + "' язык:'"+lang+"' проверено сео",
+
+            this.currentCheckedUrls.processed++;
+            var self = this;
+            this.chan().send({progress: {target:link,
                 data: {
-                    link: decodeURIComponent(link)
+                    total: self.currentCheckedUrls.total,
+                    process: self.currentCheckedUrls.processed
                 }}});
             console.log(checkBlocks);
-            console.log(doc);
+
 
         },
 
