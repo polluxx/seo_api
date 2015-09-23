@@ -1,0 +1,8 @@
+{
+  "uid": "seo_api_db_app",
+  "append": true,
+  "watch": true,
+  "script": "dbs.js",
+  "sourceDir": "/var/www/seo_api/microservices",
+  "command": "iojs"
+}
