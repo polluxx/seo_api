@@ -1,6 +1,6 @@
 // INIT packages
 'use strict';
-
+console.log('start');
 var Prodvigator = require('./services/prodvigator'),
 //Cassandra = require('./models/cassandra'),
     Parser = require('./services/parser'),
