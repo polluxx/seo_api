@@ -1,6 +1,7 @@
 // INIT packages
 'use strict';
 
+var action  = process.argv[2];
 var Prodvigator = require('../services/prodvigator'),
 //Cassandra = require('./models/cassandra'),
     Parser = require('../services/parser'),
@@ -23,7 +24,7 @@ var Prodvigator = require('../services/prodvigator'),
     })
 
         // NEO4J
-        .add({role: 'check', type: 'concurrents'}, function(args, done) {
+        .add({path: 'check', operation: 'concurrents'}, function(args, done) {
             if(args.keywords !== undefined && !args.keywords instanceof Array) {
                 done(true, {error: 'argument keywords isn\'t an instance of Array'});
             }
@@ -37,7 +38,7 @@ var Prodvigator = require('../services/prodvigator'),
                 done(null, {data:null, error: err.stack || err});
             });
         })
-        .add({role: 'check', type: 'concurrent-keys'}, function(args, done) {
+        .add({path: 'check', operation: 'concurrent-keys'}, function(args, done) {
             if(args.target !== undefined && !args.target instanceof String) {
                 done(true, {error: 'argument target isn\'t an instance of String'});
             }
@@ -51,7 +52,7 @@ var Prodvigator = require('../services/prodvigator'),
                 done(null, {data:null, error: err.stack || err});
             });
         })
-        .add({role: 'check', type: 'top100'}, function(args, done) {
+        .add({path: 'check', operation: 'top100'}, function(args, done) {
             if(args.target !== undefined && !args.target instanceof String) {
                 done(true, {error: 'argument target isn\'t an instance of String'});
             }
@@ -65,7 +66,7 @@ var Prodvigator = require('../services/prodvigator'),
                 done(null, {data:null, error: err.stack || err});
             });
         })
-        .add({role: 'check', type: 'count'}, function(args, done) {
+        .add({path: 'check', operation: 'count'}, function(args, done) {
             var data = Prodvigator.getRequestsCount(args);
             co(data).then(function (value) {
                 done(null, {data:value});
@@ -73,7 +74,7 @@ var Prodvigator = require('../services/prodvigator'),
                 done(null, {data:null, error: err.stack || err});
             });
         })
-        .add({role: 'check', type: 'query'}, function(args, done) {
+        .add({path: 'check', operation: 'query'}, function(args, done) {
             if(args.query === undefined || !args.query instanceof String) {
                 done(true, {error: 'argument isn\'t an instance of String or empty'});
             }
@@ -82,7 +83,7 @@ var Prodvigator = require('../services/prodvigator'),
                 done(err, response);
             });
         })
-        .add({role: 'check', type: 'syno'}, function(args, done) {
+        .add({path: 'check', operation: 'syno'}, function(args, done) {
             if(args.target !== undefined && !args.target instanceof String) {
                 done(true, {error: 'argument target isn\'t an instance of String'});
             }
@@ -97,7 +98,7 @@ var Prodvigator = require('../services/prodvigator'),
                 done(null, {data:null, error: err.stack || err});
             });
         })
-        .add({role: 'check', type: 'yaxmlcount'}, function(args, done) {
+        .add({path: 'check', operation: 'yaxmlcount'}, function(args, done) {
             Parser.yandexXmlLimits().then(function(resp) {
                 done(null, {data:resp});
             })
@@ -107,7 +108,7 @@ var Prodvigator = require('../services/prodvigator'),
         })
 
         // PUBLISH
-        .add({role: 'publish', type: 'top100'}, function(args, done) {
+        .add({path: 'publish', operation: 'top100'}, function(args, done) {
             if(args.target !== undefined && !args.target instanceof String) {
                 done(true, {error: 'argument target isn\'t an instance of String'});
             }
@@ -115,7 +116,7 @@ var Prodvigator = require('../services/prodvigator'),
             neo4j.publishTop100(args.target);
             done(null, {args: args, data:null});
         })
-        .add({role: 'publish', type: 'concurrents'}, function(args, done) {
+        .add({path: 'publish', operation: 'concurrents'}, function(args, done) {
             if(args.target !== undefined && !args.target instanceof String) {
                 done(true, {error: 'argument target isn\'t an instance of String'});
             }
@@ -128,7 +129,7 @@ var Prodvigator = require('../services/prodvigator'),
             neo4j.publishConcurrents(args.target);
             done(null, {args: args, data:null});
         })
-        .add({role: 'publish', type: 'concurrent-keys'}, function(args, done) {
+        .add({path: 'publish', operation: 'concurrent-keys'}, function(args, done) {
             if(args.target !== undefined && !args.target instanceof String) {
                 done(true, {error: 'argument target isn\'t an instance of String'});
             }
@@ -138,14 +139,14 @@ var Prodvigator = require('../services/prodvigator'),
         })
 
         // RABBIT
-        .add({role: 'rabbit', type: 'pub'}, function(args, done) {
+        .add({path: 'rabbit', operation: 'pub'}, function(args, done) {
             if(args.message === undefined) done(true, {error: "message is not defined"});
 
             rabbit.pub(args.message);
             done(null, {message: "OK"});
         })
 
-        .act('role:web',{use:{
+        /*.act('role:web',{use:{
 
             // define some routes that start with /my-api
             prefix: '/api',
@@ -186,7 +187,8 @@ var Prodvigator = require('../services/prodvigator'),
             map:{
                 checker: {PUT: true, OPTIONS: true}
             }
-        }})
+        }})*/
 
         //.add( { generate:'id', type:'nid'}, id.nid )
-        .listen({timeout:22000});
+        .listen({timeout:22000, port: 9001, type: 'tcp'})
+        .log.info('act ', action);

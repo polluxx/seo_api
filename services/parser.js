@@ -696,7 +696,8 @@ var parseLib = require('parse5'),
         checkByLimiter: function(limiter, args){
             var self = this, pathes = args.pathes, target = args.target, response = args.response;
 
-            this.currentCheckedUrls.total = pathes.length;
+            this.currentCheckedUrls.total = pathes.length; // for 2 langs checked
+            this.currentCheckedUrls.processed = 0; // for 2 langs checked
             limiter.removeTokens(pathes.length, function(err, remainingRequests) {
                 if(err) {
                     console.log(err);
@@ -864,14 +865,20 @@ var parseLib = require('parse5'),
                 if(error || response.statusCode !== 200) {
                     console.log(error);
                 }
-                reqBody = JSON.parse(body);
+                try {
+                    reqBody = JSON.parse(body);
+                } catch (err) {
+                    throw new Error("Error parsing body - "+path);
+                }
 
                 if(reqBody.code !== 200) {
                     console.log(reqBody);
                     return;
                 }
 
-                self.checkSeoBlocks(reqBody.doc.blocks[lang], results, lang, reqBody.doc.link);
+                var targetLink = reqBody.doc.parent || reqBody.doc.link;
+
+                self.checkSeoBlocks(reqBody.doc.blocks[lang], results, lang, targetLink);
 
             });
         },
