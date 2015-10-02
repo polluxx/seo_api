@@ -318,6 +318,7 @@ var parseLib = require('parse5'),
         },
         cookie: "",
         currentCheckedUrls: {total:0, processed:0},
+        checkSolo: false,
         proxy: function(keyword, attempts, isYandex) {
 
             var self = this,
@@ -650,6 +651,8 @@ var parseLib = require('parse5'),
                 limiter = new RateLimiter(100, 'minute'), langIndex, lang, targetSrc="";
             //this.getProxies(this.getRandomArbitrary(1, 2000), true, 5).then(function(list) {
 
+            if(args.checkSolo) this.checkSolo = true;
+
             if (args.parent && args.parent !== null) {
                 elasticsearch.init();
                 elasticsearch.scroll({
@@ -716,6 +719,9 @@ var parseLib = require('parse5'),
 
         httpsRequest: function(target, path, proxy, response, limit) {
             var self = this, chunked = "", target = target.replace(/(https|http):\/\//g, "");
+
+            path = encodeURI(path);
+
             return new Promise(function(resolve, decline) {
 
                 var timeout = setTimeout(function(){
@@ -868,8 +874,8 @@ var parseLib = require('parse5'),
                     return;
                 }
 
-                var targetLink = reqBody.doc.parent || reqBody.doc.link;
-
+                var targetLink = reqBody.doc.parent ? reqBody.doc.parent : reqBody.doc.link;
+                if(self.checkSolo) targetLink = reqBody.doc.link;
 
                 if(!reqBody.doc.blocks) {
                     console.log(reqBody.doc);
