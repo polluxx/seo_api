@@ -4,13 +4,18 @@ module.exports = function api(options) {
         'check': ['count']
     };
     //console.log(options);
-    this.add('role:api,path:check', function(msg, response) {
-        console.log(msg);
-
-        console.log("!!!!!!!!!!!!!!!!!!!!!!");
-        console.log(msg.operation);
-        console.log("!!!!!!!!!!!!!!!!!!!!!!");
+    this.add('role:api,path:check,operation:*', function(msg, response) {
         this.act({role:'check'}, {
+            type: validOpts['check'][msg.operation]
+        }, response);
+    });
+    this.add('role:api,path:publish,operation:*', function(msg, response) {
+        this.act({role:'publish'}, {
+            type: validOpts['check'][msg.operation]
+        }, response);
+    });
+    this.add('role:api,path:rabbit,operation:*', function(msg, response) {
+        this.act({role:'rabbit'}, {
             type: validOpts['check'][msg.operation]
         }, response);
     });
@@ -22,7 +27,9 @@ module.exports = function api(options) {
                 prefix: '/api',
                 pin: 'role: api, path:*',
                 map: {
-                    check: { GET:true, suffix:'/:operation' }
+                    check: { GET:true,PUT:true, suffix:'/:operation' },
+                    publish: { GET:true,PUT:true, suffix:'/:operation' },
+                    rabbit: { GET:true,POST:true, suffix:'/:operation' }
                 }
             }
         }, response);

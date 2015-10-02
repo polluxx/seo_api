@@ -1,8 +1,8 @@
 {
-  "uid": "seo_api_db_app",
+  "uid": "seo_api_parser_app",
   "append": true,
   "watch": true,
-  "script": "dbs.js",
+  "script": "parse.js",
   "sourceDir": "/var/www/html/seo_api/microservices",
   "command": "iojs"
 }

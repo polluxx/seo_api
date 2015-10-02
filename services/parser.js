@@ -261,7 +261,7 @@ var parseLib = require('parse5'),
                         res.setEncoding('utf8');
                         res.on('data', function(resp) {
 
-                            console.log("-- DATA CHUNK --");
+                            //console.log("-- DATA CHUNK --");
                             chunked += resp.toString();
 
                         })
@@ -312,19 +312,6 @@ var parseLib = require('parse5'),
             });
 
 
-        },
-        emit: function(message, chan) {
-          io.on('connection', function (socket) {
-              io.emit(chan, { msg: message});
-
-              socket.on(chan, function (from, msg) {
-                console.log('I received a private message by ', from, ' saying ', msg);
-              });
-
-              socket.on('disconnect', function () {
-                io.emit('user disconnected');
-              });
-          });
         },
         getRandomArbitrary: function(min, max) {
             return Math.ceil(Math.random() * (max - min) + min);
@@ -659,7 +646,7 @@ var parseLib = require('parse5'),
 
         urlChecker: function(target, args) {
             var promised = [], self = this, response = {errorStack: [], data:null},
-                pathes = (args.path instanceof Array) ? args.path : [args.path],
+                pathes = (args.targetPath instanceof Array) ? args.targetPath : [args.targetPath],
                 limiter = new RateLimiter(100, 'minute'), langIndex, lang, targetSrc="";
             //this.getProxies(this.getRandomArbitrary(1, 2000), true, 5).then(function(list) {
 
@@ -674,7 +661,7 @@ var parseLib = require('parse5'),
             }
 
             pathes = setupUkLang(pathes);
-            self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response});
+            self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response, path:args.targetPath});
 
             function makeElasticReq(searchResponse) {
                 var pathes = [];
@@ -683,7 +670,8 @@ var parseLib = require('parse5'),
                         return item['doc.link'][0];
                     });
                     pathes = setupUkLang(pathes);
-                    self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response});
+
+                    self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response, path:args.targetPath});
                 }
             }
 
@@ -694,10 +682,12 @@ var parseLib = require('parse5'),
             }
         },
         checkByLimiter: function(limiter, args){
-            var self = this, pathes = args.pathes, target = args.target, response = args.response;
+            var self = this, pathes = args.pathes, target = args.target, response = args.response, factory;
 
-            this.currentCheckedUrls.total = pathes.length; // for 2 langs checked
-            this.currentCheckedUrls.processed = 0; // for 2 langs checked
+
+            this.currentCheckedUrls[args.path] = {};
+            this.currentCheckedUrls[args.path].total = pathes.length; // for 2 langs checked
+            this.currentCheckedUrls[args.path].processed = 0; // for 2 langs checked
             limiter.removeTokens(pathes.length, function(err, remainingRequests) {
                 if(err) {
                     console.log(err);
@@ -710,15 +700,15 @@ var parseLib = require('parse5'),
 
                 pathes.forEach(function(path) {
 
-
-                    self.httpsRequest(target, "/"+path, null, response)
+                    self.httpsRequest(target, path, null, response)
                         .then(function(resp) {
                             if(!resp.data) return;
 
-                            self.parseFactory(target, resp.data, path)();
+                            factory = self.parseFactory(target, resp.data, path);
+                            //factory();
                         })
                         .catch(function(err) {
-                            //console.log(err);
+                            console.log(err);
                         });
                 });
             });
@@ -749,7 +739,7 @@ var parseLib = require('parse5'),
                         maxRedirects: 5,
                         gzip: true,
                         headers: {
-                            "Content-Type": "text/plain;charset=utf-8",
+                            "Content-Type": "text/plain;charset=utf-8"
                             //"Set-Cookie": cookie + "; domain=.yandex.ua; path=/;",
                             //"domain": ".yandex.ua",
                             //"path":"/"
@@ -757,13 +747,13 @@ var parseLib = require('parse5'),
                         // ... just add the special agent:
                         //agent: request
                     }, function (res) {
-
+                        var allow = {200:true, 301:true};
                         clearTimeout(timeout);
-                        if(res.statusCode !== 200) {
-                            console.log("CODE: - "+res.statusCode);
+                        if(!allow[res.statusCode]) {
+                            console.log("CODE: - "+res.statusCode + " PAGE:"+path);
 
-                            console.log(res);
-
+                            //console.log(res);
+                            //
                             response.errorStack.push(JSON.stringify(res.headers));
                             if(response.errorStack.length === limit) decline(response);
                             return;
@@ -771,7 +761,7 @@ var parseLib = require('parse5'),
 
                         res.setEncoding('utf8');
                         res.on('data', function(resp) {
-                            console.log("-- DATA CHUNK --");
+                            //console.log("-- DATA CHUNK --");
                             chunked += resp.toString();
                         })
                         .on('end', function() {
@@ -861,6 +851,8 @@ var parseLib = require('parse5'),
             var path = config.parser.seoDB.path + pathChunk, reqBody, self = this;
 
 
+            //couch.get(pathChunk);
+
             Request('http://'+config.parser.seoDB.host+":"+config.parser.seoDB.port+path, function (error, response, body) {
                 if(error || response.statusCode !== 200) {
                     console.log(error);
@@ -877,6 +869,17 @@ var parseLib = require('parse5'),
                 }
 
                 var targetLink = reqBody.doc.parent || reqBody.doc.link;
+
+
+                if(!reqBody.doc.blocks) {
+                    console.log(reqBody.doc);
+                    return;
+                }
+
+                if(!reqBody.doc.blocks[lang]) {
+                    console.log("EMPTY DOC FOR LANG - "+lang);
+                    return;
+                }
 
                 self.checkSeoBlocks(reqBody.doc.blocks[lang], results, lang, targetLink);
 
@@ -942,12 +945,12 @@ var parseLib = require('parse5'),
             checkBlocks[lang] = complexData;
 
 
-            this.currentCheckedUrls.processed++;
+            this.currentCheckedUrls[link].processed++;
             var self = this;
             this.chan().send({progress: {target:link,
                 data: {
-                    total: self.currentCheckedUrls.total,
-                    process: self.currentCheckedUrls.processed
+                    total: self.currentCheckedUrls[link].total,
+                    process: self.currentCheckedUrls[link].processed
                 }}});
             console.log(checkBlocks);
 
@@ -1032,12 +1035,15 @@ var parseLib = require('parse5'),
                 }
             }
 
+            //console.log(results);
 
             this.checkSeo(results, chunk, lang);
             //couch.init('seo');
 
             function defaultFunc(block) {
-                if(!block) return null;
+
+                if(!block || !block[0]) return null;
+
                 return serializerLib.serialize(block[0]);
             }
 
@@ -1045,32 +1051,38 @@ var parseLib = require('parse5'),
         // END
 
         returnParsedData: function(index, block, defaultFunc) {
-            if(!block.length) return [];
+            if(!block || !block.length || !block[0] || !block[0].childNodes) return [];
 
             var indexArr, valueArr = [], imgBlock, imgItem = {}, tmpImages = {};
             switch(index) {
               case "title":
+
                   valueArr = block[0].childNodes[0].value;
                   break;
               case "h1":
-                  valueArr = block[0].childNodes[0].value.match(/«(.*)»/g);
-                  valueArr = valueArr[0].replace(/\«|\»/g, "");
+
+                  if(!block[0].childNodes[0].value) return [];
+
+                  valueArr = block[0].childNodes[0].value.replace(/«(.*)»/g, "$1").trim();
                   break;
               case "description":
+
                   valueArr = block[0].attrs.filter(this.findItemDesc)[0].value;
                   break;
               case "canonical":
+
                   for(indexArr in block) {
                       valueArr.push(block[indexArr].attrs.filter(this.findItemCanonical)[0].value);
                   }
 
                   break;
               case "img":
+
                   var imgCounters = {}, container, self = this;
                   for(indexArr of block) {
                       container = [];
                       container = self.filterResults(indexArr, tmpImages)();
-                      if(!container[0]) continue;
+                      if(!container || !container[0]) continue;
 
                       if(container[0].src) !imgCounters.src ? imgCounters.src = 1 : imgCounters.src++;
                       if(container[0].title) !imgCounters.title ? imgCounters.title = 1 : imgCounters.title++;
@@ -1081,7 +1093,9 @@ var parseLib = require('parse5'),
                   valueArr = {data: valueArr, counters: imgCounters};
                   break;
                 case "robots":
-                    valueArr = block[0].attrs.filter(this.findItemDesc)[0].value;
+
+                    valueArr = block[0].attrs.filter(this.findItemDesc);
+                    if(valueArr) valueArr = valueArr[0].value;
                     break;
               default:
                   return defaultFunc(block);

@@ -11,7 +11,7 @@ var Prodvigator = require('../services/prodvigator'),
     //cors = require('cors'),
     co = require('co'),
     //app = require('express')(),
-    io = require('socket.io')(8002),
+    //io = require('socket.io')(8002),
     seneca = require('seneca')({
         transport:{
             web:{
@@ -76,7 +76,7 @@ var Prodvigator = require('../services/prodvigator'),
         })
         .add({path: 'check', operation: 'query'}, function(args, done) {
             if(args.query === undefined || !args.query instanceof String) {
-                done(true, {error: 'argument isn\'t an instance of String or empty'});
+                done(null, {error: 'argument isn\'t an instance of String or empty'});
             }
 
             neo4j.cypher(args.query, null, function(err, response) {
