@@ -52,9 +52,14 @@ Elastic = {
                     }
 
                     console.log("scroll!!!!");
+                    console.log(resp._scroll_id);
+                    console.log(resp.hits.total);
+                    console.log(searchLength);
+                    console.log(results.length);
+                    console.log("-------------");
 
                     if (resp.hits.total !== searchLength) {
-                        if(results.length && resolver) resolver(results)();
+                        if(results.length && resolver) resolver(results, resp.hits.total)();
                         // now we can call scroll over and over
                         self.client.scroll({
                             scrollId: resp._scroll_id,
@@ -62,7 +67,7 @@ Elastic = {
                         }, scrollUntilEnd);
 
                     } else {
-                        if(results.length && resolver) resolver(results)();
+                        if(results.length && resolver) resolver(results, resp.hits.total)();
 
                         resolve(searchData);
                     }

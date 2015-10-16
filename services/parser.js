@@ -317,7 +317,7 @@ var parseLib = require('parse5'),
             return Math.ceil(Math.random() * (max - min) + min);
         },
         cookie: "",
-        currentCheckedUrls: {total:0, processed:0},
+        currentCheckedUrls: {},
         checkSolo: false,
         proxy: function(keyword, attempts, isYandex) {
 
@@ -648,8 +648,14 @@ var parseLib = require('parse5'),
         urlChecker: function(target, args) {
             var promised = [], self = this, response = {errorStack: [], data:null},
                 pathes = (args.targetPath instanceof Array) ? args.targetPath : [args.targetPath],
-                limiter = new RateLimiter(100, 'minute'), langIndex, lang, targetSrc="";
+                limiter = new RateLimiter(100, 'minute'), langIndex, lang, targetSrc = args.parent || args.targetPath;
             //this.getProxies(this.getRandomArbitrary(1, 2000), true, 5).then(function(list) {
+
+
+            self.currentCheckedUrls[targetSrc] = {};
+            self.currentCheckedUrls[targetSrc].processed = 0; // for 2 langs checked
+            self.currentCheckedUrls[targetSrc].processedWithError = 0; // for 2 langs checked
+
 
             if(args.checkSolo) this.checkSolo = true;
 
@@ -663,18 +669,21 @@ var parseLib = require('parse5'),
                 return;
             }
 
-            pathes = setupUkLang(pathes);
+
+            self.currentCheckedUrls[args.path].total = pathes.length; // for 2 langs checked
+            //pathes = setupUkLang(pathes);
             self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response, path:args.targetPath});
 
-            function makeElasticReq(searchResponse) {
+            function makeElasticReq(searchResponse, totalItems) {
                 var pathes = [];
                 return function () {
                     pathes = searchResponse.map(function (item) {
                         return item['doc.link'][0];
                     });
-                    pathes = setupUkLang(pathes);
+                    //pathes = setupUkLang(pathes);
 
-                    self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response, path:args.targetPath});
+                    self.currentCheckedUrls[args.parent].total = totalItems; // for 2 langs checked
+                    self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response, path:args.targetPath, total: totalItems});
                 }
             }
 
@@ -688,15 +697,13 @@ var parseLib = require('parse5'),
             var self = this, pathes = args.pathes, target = args.target, response = args.response, factory;
 
 
-            this.currentCheckedUrls[args.path] = {};
-            this.currentCheckedUrls[args.path].total = pathes.length; // for 2 langs checked
-            this.currentCheckedUrls[args.path].processed = 0; // for 2 langs checked
             limiter.removeTokens(pathes.length, function(err, remainingRequests) {
                 if(err) {
                     console.log(err);
                     console.log("RATE LIMIT");
                     return;
                 }
+
 
                 console.log("REMAIN REQ - "+remainingRequests);
                 console.log("COUNT REQ - "+pathes.length);
@@ -705,7 +712,14 @@ var parseLib = require('parse5'),
 
                     self.httpsRequest(target, path, null, response)
                         .then(function(resp) {
-                            if(!resp.data) return;
+                            console.log(resp);
+                            console.log(path);
+                            if(!resp.data) {
+
+                                self.sendProgress(args.path, false);
+
+                                return;
+                            }
 
                             factory = self.parseFactory(target, resp.data, path);
                             //factory();
@@ -715,6 +729,40 @@ var parseLib = require('parse5'),
                         });
                 });
             });
+        },
+
+        //
+        sendProgress: function(path, isNormal) {
+            if(isNormal) {
+                this.currentCheckedUrls[link].processed++;
+            } else {
+                this.currentCheckedUrls[path].processedWithError++;
+            }
+
+            var notifyObj = this.currentCheckedUrls[path];
+            if(!notifyObj.processedWithError) notifyObj.processedWithError = 0;
+            if(!notifyObj.percentile) notifyObj.percentile = 0;
+
+            notifyObj.percentileError = Math.round((notifyObj.processedWithError / notifyObj.total) * 100);
+            notifyObj.percentile = Math.round((notifyObj.processed / notifyObj.total)*100);
+
+            notifyObj.totalProgress = notifyObj.percentile+notifyObj.percentileError;
+
+            notifyObj.oldTotalProgress = (notifyObj.oldTotalProgress !== null) ? notifyObj.oldTotalProgress : null;
+
+            if(notifyObj.oldTotalProgress === null || notifyObj.oldTotalProgress !== notifyObj.totalProgress) {
+                this.chan().send({progress: {target:path,
+                    //data: {
+                    //    total: notifyObj.total,
+                    //    process: notifyObj.processed,
+                    //    processError: notifyObj.processedWithError
+                    //},
+                    percentileError: notifyObj.percentileError,
+                    percentile: notifyObj.percentile,
+                    totalProgress: notifyObj.totalProgress}});
+                this.currentCheckedUrls[path].oldTotalProgress = notifyObj.totalProgress;
+            }
+
         },
 
         httpsRequest: function(target, path, proxy, response, limit) {
@@ -951,13 +999,8 @@ var parseLib = require('parse5'),
             checkBlocks[lang] = complexData;
 
 
-            this.currentCheckedUrls[link].processed++;
-            var self = this;
-            this.chan().send({progress: {target:link,
-                data: {
-                    total: self.currentCheckedUrls[link].total,
-                    process: self.currentCheckedUrls[link].processed
-                }}});
+            self.sendProgress(link, true);
+
             console.log(checkBlocks);
 
 
