@@ -1,5 +1,6 @@
 var rabbit = require('rabbit.js'),
     http = require('http'),
+    config = require('../config'),
     Rabbit = {
         pub: function(message) {
 
@@ -8,7 +9,7 @@ var rabbit = require('rabbit.js'),
                 return;
             }
 
-            var context = rabbit.createContext();
+            var context = rabbit.createContext(config.dbs.rabbit.host);
             context.on('ready', function() {
                 var pub = context.socket('PUBLISH'), sub = context.socket('SUBSCRIBE');
                 //sub.pipe(process.stdout);
@@ -20,7 +21,7 @@ var rabbit = require('rabbit.js'),
             });
         },
         sub: function() {
-            var context = rabbit.createContext(), route = {}, routes = ["type", "path", "operation"];
+            var context = rabbit.createContext(config.dbs.rabbit.host), route = {}, routes = ["type", "path", "operation"];
             context.on('ready', function() {
                 var sub = context.socket('SUBSCRIBE');
                 sub.connect('events', function() {
@@ -50,7 +51,7 @@ var rabbit = require('rabbit.js'),
 
                             var query = params.join("&"),
                             options = {
-                                host: "localhost",
+                                host: config.api,
                                 port: 3000,
                                 path: '/'+route.type+"/"+route.path+"/"+route.operation+"?"+encodeURI(query),
                                 method: 'GET'

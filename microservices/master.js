@@ -2,6 +2,7 @@
 var cors = require('cors'),
     rabbit = require('../services/rabbit'),
     io = require('socket.io')(8002),
+    config = require('../config'),
     seneca = require('seneca')({
         transport:{
             web:{
