@@ -3,6 +3,6 @@
   "append": true,
   "watch": true,
   "script": "parse.js",
-  "sourceDir": "/var/www/html/seo_api/microservices",
+  "sourceDir": "/var/www/seo_api/microservices",
   "command": "iojs"
 }
