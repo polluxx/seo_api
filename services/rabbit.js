@@ -9,7 +9,9 @@ var rabbit = require('rabbit.js'),
                 return;
             }
 
-            var context = rabbit.createContext(config.dbs.rabbit);
+            var rabbitOpts = config.dbs.rabbit;
+
+            var context = rabbit.createContext("amqp://"+rabbitOpts.login+":"+rabbitOpts.password+"@"+rabbitOpts.host+":"+rabbitOpts.port);
             context.on('ready', function() {
                 var pub = context.socket('PUBLISH'), sub = context.socket('SUBSCRIBE');
                 //sub.pipe(process.stdout);
@@ -21,7 +23,8 @@ var rabbit = require('rabbit.js'),
             });
         },
         sub: function() {
-            var context = rabbit.createContext(config.dbs.rabbit), route = {}, routes = ["type", "path", "operation"];
+            var rabbitOpts = config.dbs.rabbit, context = rabbit.createContext("amqp://"+rabbitOpts.login+":"+rabbitOpts.password+"@"+rabbitOpts.host+":"+rabbitOpts.port),
+                route = {}, routes = ["type", "path", "operation"];
             context.on('ready', function() {
                 var sub = context.socket('SUBSCRIBE');
                 sub.connect('events', function() {
