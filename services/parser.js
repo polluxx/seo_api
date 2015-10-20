@@ -668,9 +668,9 @@ var parseLib = require('parse5'),
                 }, makeElasticReq);
                 return;
             }
+            //console.log(args.path);
 
-
-            self.currentCheckedUrls[args.path].total = pathes.length; // for 2 langs checked
+            self.currentCheckedUrls[targetSrc].total = pathes.length; // for 2 langs checked
             //pathes = setupUkLang(pathes);
             self.checkByLimiter(limiter, {pathes: pathes, target: target, response: response, path:args.targetPath});
 
@@ -710,10 +710,9 @@ var parseLib = require('parse5'),
 
                 pathes.forEach(function(path) {
 
-                    self.httpsRequest(target, path, null, response)
+                    self.httpsRequest(target, path, null, response, 1)
                         .then(function(resp) {
-                            console.log(resp);
-                            console.log(path);
+
                             if(!resp.data) {
 
                                 self.sendProgress(args.path, false);
@@ -726,6 +725,7 @@ var parseLib = require('parse5'),
                         })
                         .catch(function(err) {
                             console.log(err);
+                            self.sendProgress(args.path, false);
                         });
                 });
             });
@@ -734,7 +734,7 @@ var parseLib = require('parse5'),
         //
         sendProgress: function(path, isNormal) {
             if(isNormal) {
-                this.currentCheckedUrls[link].processed++;
+                this.currentCheckedUrls[path].processed++;
             } else {
                 this.currentCheckedUrls[path].processedWithError++;
             }
@@ -999,7 +999,7 @@ var parseLib = require('parse5'),
             checkBlocks[lang] = complexData;
 
 
-            self.sendProgress(link, true);
+            this.sendProgress(link, true);
 
             console.log(checkBlocks);
 

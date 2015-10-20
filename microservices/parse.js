@@ -5,6 +5,7 @@ var Prodvigator = require('../services/prodvigator'),
 //Cassandra = require('./models/cassandra'),
     Parser = require('../services/parser'),
     //rabbit = require('../services/rabbit'),
+    //rabbit = require('../services/rabbit'),
     //mysql = require('./models/mysql.js'),
     //neo4j = require('../models/neo4j.js'),
     //cors = require('cors'),
@@ -42,9 +43,9 @@ var Prodvigator = require('../services/prodvigator'),
             var result = Prodvigator.concurrents(args);
 
             co(result).then(function (value) {
-                done(null, {arga: args, data:value});
+                done(null, {data:value});
             }, function (err) {
-                done(null, {arga: args, data:null, error: err.stack});
+                done(null, {data:null, error: err.stack});
             });
         } )
 
@@ -54,9 +55,9 @@ var Prodvigator = require('../services/prodvigator'),
 
             var encoded = args.encoded || false, keyword = encoded ? decodeURI(args.keyword) : args.keyword, response = Parser.proxy(keyword);
             co(response).then(function (value) {
-                done(null, {args: args, data:value});
+                done(null, {data:value});
             }, function (err) {
-                done(null, {args: args, data:null, error: err.stack});
+                done(null, {data:null, error: err.stack});
             });
         })
         .add({path: 'parse', operation: 'syno'}, function(args, done) {
@@ -85,6 +86,10 @@ var Prodvigator = require('../services/prodvigator'),
 
             done(null, {data:"OK"});
         })
-
+        //.add({path: 'rabbit', operation: 'sub'}, function(args, done) {
+        //    rabbit.sub();
+        //    done(null, {message: "LISTENING"});
+        //})
+        //.act({path: 'rabbit', operation: 'sub'})
         //.add( { generate:'id', type:'nid'}, id.nid )
         .listen({timeout:22000, port: 9002, type: 'tcp'});

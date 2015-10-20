@@ -20,7 +20,7 @@ var rabbit = require('rabbit.js'),
             });
         },
         sub: function() {
-            var context = rabbit.createContext();
+            var context = rabbit.createContext(), route = {}, routes = ["type", "path", "operation"];
             context.on('ready', function() {
                 var sub = context.socket('SUBSCRIBE');
                 sub.connect('events', function() {
@@ -34,6 +34,10 @@ var rabbit = require('rabbit.js'),
                             for (index in messageData) {
 
                                 //if(index == 'target') messageData[index] = encodeURIComponent(messageData[index]);
+                                if(~routes.indexOf(index)) {
+                                    route[index] = messageData[index];
+                                    continue;
+                                }
 
 
                                 params.push(index+"="+messageData[index]);
@@ -43,11 +47,12 @@ var rabbit = require('rabbit.js'),
                             console.error(err);
                             return;
                         }
+
                             var query = params.join("&"),
                             options = {
                                 host: "localhost",
-                                port: 10101,
-                                path: '/act?'+encodeURI(query),
+                                port: 3000,
+                                path: '/'+route.type+"/"+route.path+"/"+route.operation+"?"+encodeURI(query),
                                 method: 'GET'
                             },
                             raw = "",

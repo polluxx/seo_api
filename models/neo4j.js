@@ -99,7 +99,7 @@ neo4j = {
                     var options = {
                             host: config.api,
                             port: 3000,
-                            path: '/rabbit/pub?message={"role":"publish","type":"top100","target":"'+args.target+'"}',
+                            path: '/api/rabbit/pub?message={"type":"api","path":"publish","operation":"top100","target":"'+args.target+'"}',
                             method: 'GET'
                         };
                     self.makeReq(options, resolve, reject);
@@ -173,9 +173,10 @@ neo4j = {
                                 var options = {
                                     host: config.api,
                                     port: 3000,
-                                    path: '/rabbit/pub?message={"role":"publish","type":"concurrents","target":"'+args.target+'"}',
+                                    path: '/api/rabbit/pub?message={"type":"api","path":"publish","operation":"concurrents","target":"'+encodeURIComponent(args.target)+'"}',
                                     method: 'GET'
                                 };
+                                console.log(options);
                                 self.makeReq(options, resolve, reject);
                                 return;
                             }
@@ -289,8 +290,8 @@ neo4j = {
 
                var options = {
                    host: config.api,
-                   port: 10101,
-                   path: '/act?role=parse&type=concurrents&keyword='+encodeURI(keyword)+'&encoded=true',
+                   port: 3000,
+                   path: '/parser/parse/concurrents?keyword='+encodeURI(keyword)+'&encoded=true',
                    method: 'GET'
                },
                raw = "",
@@ -383,7 +384,7 @@ neo4j = {
                     var options = {
                         host: config.api,
                         port: 3000,
-                        path: '/rabbit/pub?message={"role":"publish","type":"concurrent-keys","target":"'+args.target+'"}',
+                        path: '/api/rabbit/pub?message={"type":"api","path":"publish","operation":"concurrent-keys","target":"'+args.target+'"}',
                         method: 'GET'
                     };
                     self.makeReq(options, resolve, reject);
@@ -541,8 +542,8 @@ neo4j = {
         return new Promise(function(resolve, reject) {
             var options = {
                     host: config.api,
-                    port: 10101,
-                    path: '/act?role=aggregate&type=top&link='+link,
+                    port: 3000,
+                    path: '/parser/aggregate/top?link='+link,
                     method: 'GET'
                 },
                 raw = "",
@@ -647,8 +648,8 @@ neo4j = {
     publishSyno: function(keyword, resolve, reject) {
         var options = {
             host: config.api,
-            port: 10101,
-            path: '/act?role=parse&type=syno&keyword='+encodeURI(keyword)+'&encoded=true',
+            port: 3000,
+            path: '/parser/parse/syno?keyword='+encodeURI(keyword)+'&encoded=true',
             method: 'GET'
         },
         raw = "";
