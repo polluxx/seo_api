@@ -24,7 +24,6 @@ var rabbit = require('rabbit.js'),
         },
         sub: function() {
             var rabbitOpts = config.dbs.rabbit;
-            console.log(rabbitOpts);
                 var context = rabbit.createContext("amqp://"+rabbitOpts.login+":"+rabbitOpts.password+"@"+rabbitOpts.host+":"+rabbitOpts.port),
                 route = {}, routes = ["type", "path", "operation"];
             context.on('ready', function() {
@@ -64,9 +63,6 @@ var rabbit = require('rabbit.js'),
                             raw = "",
                             items = [],
                             request = http.request(options, function (resp) {
-
-                                console.log(resp);
-                                return;
 
                                 if(resp.statusCode !== 200) {
                                     console.error(resp);

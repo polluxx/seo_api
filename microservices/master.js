@@ -33,7 +33,7 @@ var cors = require('cors'),
                 console.log('client connected');
                 socket.on('message', function (mess) {
                     //console.log(mess);
-                    socket.send('hello');
+                    //socket.send('hello');
                     io.send(mess);
                 });
                 socket.on('disconnect', function () {
