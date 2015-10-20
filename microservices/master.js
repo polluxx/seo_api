@@ -20,8 +20,8 @@ var cors = require('cors'),
         .use('api')
         .use('parser')
 
-        .client({ port: 9001, type:'tcp', pin:{role:'api', path:"*"}})
-        .client({ port: 9002, type:'tcp', pin:{role:'parser', path:"*"}})
+        .client({host:config.clients.api, port: 9001, type:'tcp', pin:{role:'api', path:"*"}})
+        .client({host:config.clients.parser, port: 9002, type:'tcp', pin:{role:'parser', path:"*"}})
 
         .add({role: 'rabbit', type: 'sub'}, function(args, done) {
             rabbit.sub();
