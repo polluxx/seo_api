@@ -165,7 +165,7 @@ neo4j = {
                         if(response.errors.length) reject(response.errors);
 
 
-                        if(args.newCheck !== undefined && args.newCheck == true) {
+                        if(args.newCheck !== undefined) {
                             //self.publishConcurrents(args.target);
 
                             var options = {
