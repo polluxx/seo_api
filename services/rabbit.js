@@ -10,7 +10,8 @@ var rabbit = require('rabbit.js'),
             }
 
             var rabbitOpts = config.dbs.rabbit;
-
+            console.log("RABBIT OPTS");
+            console.log(rabbitOpts);
             var context = rabbit.createContext("amqp://"+rabbitOpts.login+":"+rabbitOpts.password+"@"+rabbitOpts.host+":"+rabbitOpts.port);
             context.on('ready', function() {
                 var pub = context.socket('PUBLISH'), sub = context.socket('SUBSCRIBE');
