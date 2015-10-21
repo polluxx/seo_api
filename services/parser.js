@@ -895,7 +895,7 @@ var parseLib = require('parse5'),
 
         saveSeo: function(id, doc) {
             var seoElm = config.parser.seoDB;
-            Request.put('http://'+seoElm.host+":"+seoElm.port+seoElm.send, doc)
+            Request.put('http://'+seoElm.host+":"+seoElm.port+seoElm.send, {form: doc})
                 .on('response', function (response) {
                     console.log(response);
                 })
