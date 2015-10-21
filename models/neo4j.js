@@ -164,22 +164,22 @@ neo4j = {
                     self.domainConcurrents(args.target, args).then(function(response) {
                         if(response.errors.length) reject(response.errors);
 
+
+                        if(args.newCheck !== undefined && args.newCheck === true) {
+                            //self.publishConcurrents(args.target);
+
+                            var options = {
+                                host: config.api,
+                                port: 3000,
+                                path: '/api/rabbit/pub?message={"type":"api","path":"publish","operation":"concurrents","target":"'+encodeURIComponent(args.target)+'"}',
+                                method: 'GET'
+                            };
+
+                            self.makeReq(options, resolve, reject);
+                            return;
+                        }
+
                         if(response.results[0] === undefined || !response.results[0].data.length) {
-
-
-                            if(args.newCheck !== undefined) {
-                                //self.publishConcurrents(args.target);
-
-                                var options = {
-                                    host: config.api,
-                                    port: 3000,
-                                    path: '/api/rabbit/pub?message={"type":"api","path":"publish","operation":"concurrents","target":"'+encodeURIComponent(args.target)+'"}',
-                                    method: 'GET'
-                                };
-                                console.log(options);
-                                self.makeReq(options, resolve, reject);
-                                return;
-                            }
 
                             reject("Empty response from DB. Try to aggregate data.");
                             return;
