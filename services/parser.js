@@ -9,7 +9,7 @@ var parseLib = require('parse5'),
     parseString = require('xml2js').parseString,
     config = require('../config.js'),
     neo4j = require('../models/neo4j.js'),
-    //couch = require('../models/couch.js'),
+    couch = require('../models/couch.js'),
     elasticsearch = require('../models/elastic.js'),
     io = require('socket.io-client'),
     fm = require('../models/files.js'),
@@ -901,7 +901,9 @@ var parseLib = require('parse5'),
             var path = config.parser.seoDB.path + pathChunk, reqBody, self = this;
 
 
-            //couch.get(pathChunk);
+            couch.get(pathChunk);
+
+            return;
 
             Request('http://'+config.parser.seoDB.host+":"+config.parser.seoDB.port+path, function (error, response, body) {
                 if(error || response.statusCode !== 200) {
