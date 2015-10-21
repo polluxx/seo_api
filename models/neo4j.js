@@ -122,8 +122,7 @@ neo4j = {
         });
 
         request.on('error', function(err) {
-            console.log("ERROR!");
-            console.log(err);
+
             reject(err);
         });
 
