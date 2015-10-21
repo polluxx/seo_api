@@ -9,7 +9,7 @@ var parseLib = require('parse5'),
     parseString = require('xml2js').parseString,
     config = require('../config.js'),
     neo4j = require('../models/neo4j.js'),
-    couch = require('../models/couch.js'),
+    //couch = require('../models/couch.js'),
     elasticsearch = require('../models/elastic.js'),
     io = require('socket.io-client'),
     fm = require('../models/files.js'),
@@ -893,6 +893,13 @@ var parseLib = require('parse5'),
             });
         },
 
+        saveSeo: function(id, doc) {
+            var seoElm = config.parser.seoDB, path = seoElm.send;
+            Request('http://'+seoElm.host+":"+seoElm+path, doc, function (error, response, body) {
+                console.log(error);
+                console.log(response);
+            });
+        },
 
 
         // BLOCK PARSERS
@@ -900,10 +907,6 @@ var parseLib = require('parse5'),
             pathChunk = pathChunk.replace(/\/uk/g, "");
             var path = config.parser.seoDB.path + pathChunk, reqBody, self = this;
 
-
-            couch.get(pathChunk);
-
-            return;
 
             Request('http://'+config.parser.seoDB.host+":"+config.parser.seoDB.port+path, function (error, response, body) {
                 if(error || response.statusCode !== 200) {
@@ -999,8 +1002,9 @@ var parseLib = require('parse5'),
 
             this.sendProgress(link, true);
 
+            console.log(doc);
             console.log(checkBlocks);
-
+            //this.saveSeo();
 
         },
 
