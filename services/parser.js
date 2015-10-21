@@ -936,14 +936,20 @@ var parseLib = require('parse5'),
                     return;
                 }
 
-                self.checkSeoBlocks(reqBody.doc.blocks[lang], results, lang, targetLink);
+                self.checkSeoBlocks(reqBody.doc, results, lang, targetLink);
 
             });
         },
         checkSeoBlocks: function(doc, blocks, lang, link) {
             if(!doc) {
-                throw new Error('blocks element not found in - '+link);
+                throw new Error('doc not found in - '+link);
             }
+            var docData = doc.blocks[lang];
+            if(!docData) {
+                throw new Error('blocks element not found in - '+link);
+                return;
+            }
+
 
             var keys = Object.keys(blocks), keysLen = keys.length, index, value, complexData = {}, blockItem, block,
                 notToCheck = ['img', 'canonical', 'robots'], checkBlocks = {};
@@ -958,7 +964,7 @@ var parseLib = require('parse5'),
 
                 if(value == "seotext" && block.length) {
                     block = decodeStringElemens(block.replace(/\n/g, ""));
-                    doc[value] = decodeStringElemens(doc[value].replace(/\n/g, ""));
+                    docData[value] = decodeStringElemens(docData[value].replace(/\n/g, ""));
                 }
 
                 if(typeof block !== "string") {
@@ -1002,8 +1008,9 @@ var parseLib = require('parse5'),
 
             this.sendProgress(link, true);
 
+            doc.statistic = checkBlocks;
             console.log(doc);
-            console.log(checkBlocks);
+            //console.log(checkBlocks);
             //this.saveSeo();
 
         },
