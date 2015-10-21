@@ -893,7 +893,8 @@ var parseLib = require('parse5'),
             });
         },
 
-        saveSeo: function(id, doc) {
+        saveSeo: function(doc) {
+            doc['_id'] = doc.link;
             var seoElm = config.parser.seoDB;
             Request.put('http://'+seoElm.host+":"+seoElm.port+seoElm.send, {form: doc})
                 .on('response', function (response) {
