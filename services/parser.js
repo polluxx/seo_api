@@ -895,10 +895,13 @@ var parseLib = require('parse5'),
 
         saveSeo: function(id, doc) {
             var seoElm = config.parser.seoDB, path = seoElm.send;
-            Request('http://'+seoElm.host+":"+seoElm+path, doc, function (error, response, body) {
-                console.log(error);
-                console.log(response);
-            });
+            Request.put('http://'+seoElm.host+":"+seoElm+path, doc)
+                .on('response', function (response) {
+                    console.log(response);
+                })
+                .on('error', function(error) {
+                    console.log(error);
+                });
         },
 
 
@@ -1009,9 +1012,9 @@ var parseLib = require('parse5'),
             this.sendProgress(link, true);
 
             doc.statistic = checkBlocks;
-            console.log(doc);
+            //console.log(doc);
             //console.log(checkBlocks);
-            //this.saveSeo();
+            this.saveSeo(doc);
 
         },
 
