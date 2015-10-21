@@ -164,7 +164,7 @@ neo4j = {
                     self.domainConcurrents(args.target, args).then(function(response) {
                         if(response.errors.length) reject(response.errors);
 
-                        console.log(args.newCheck);
+                        console.log(args);
                         if(args.newCheck !== undefined && args.newCheck === true) {
                             //self.publishConcurrents(args.target);
 
