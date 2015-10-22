@@ -626,9 +626,9 @@ neo4j = {
         this.findKeywordsLinks({target: target})
             .then(function(concurrents) {
                 console.log(concurrents);
+                var length = concurrents.data.length;
 
-
-                limiter.removeTokens(10, function(err, remainingRequests) {
+                limiter.removeTokens(length, function(err, remainingRequests) {
 
                     if (err) {
                         console.log(err);
