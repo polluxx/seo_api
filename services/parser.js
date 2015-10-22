@@ -893,7 +893,7 @@ var parseLib = require('parse5'),
             });
         },
 
-        saveSeo: function(doc) {
+        saveSeo: function(doc, cb) {
             doc['_id'] = doc.link;
             var seoElm = config.parser.seoDB;
             Request(
@@ -904,6 +904,12 @@ var parseLib = require('parse5'),
 
                 }, function(err, resp, body) {
                     console.log(body);
+                    if(err) {
+                        console.error(err);
+                        cb(false);
+                    } else {
+                        cb(true);
+                    }
             });
         },
 
@@ -1012,7 +1018,7 @@ var parseLib = require('parse5'),
             checkBlocks[lang] = complexData;
 
 
-            this.sendProgress(link, true);
+
 
             if(!checkBlocks.ru.robots.length) {
                 checkBlocks.ru.robots = "";
@@ -1021,7 +1027,10 @@ var parseLib = require('parse5'),
             doc.statistic = checkBlocks;
             //console.log(doc);
             //console.log(checkBlocks);
-            this.saveSeo(doc);
+            var self = this;
+            this.saveSeo(doc, function(status) {
+                self.sendProgress(link, status);
+            });
 
         },
 
