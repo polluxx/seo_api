@@ -65,7 +65,7 @@ neo4j = {
                 if(args.target === undefined) reject("Error: target param is not provided");
 
                 self.domainKeywords(args.target, args).then(function(response) {
-                    console.log(response);
+
                     if(response.errors.length) reject(response.errors);
 
                     if(response.results[0] === undefined) {
@@ -678,6 +678,8 @@ neo4j = {
             query += 'MERGE (domain)-[:CONTAINS]->('+label+')\r\n';
 
         }
+        console.log(query);
+        return;
         this.cypher(query, null, function(err, response) {
             console.log(err);
             console.log(response);
