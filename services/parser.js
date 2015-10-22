@@ -896,13 +896,12 @@ var parseLib = require('parse5'),
         saveSeo: function(doc) {
             doc['_id'] = doc.link;
             var seoElm = config.parser.seoDB;
-            Request.put('http://'+seoElm.host+":"+seoElm.port+seoElm.send, {form: doc})
-                .on('response', function (response) {
-                    console.log(response);
-                })
-                .on('error', function(error) {
-                    console.log(error);
-                });
+            Request.put('http://'+seoElm.host+":"+seoElm.port+seoElm.send, {form: doc}, function(err, resp, body) {
+                console.log(body);
+            })
+            .on('error', function(error) {
+                console.log(error);
+            });
         },
 
 
