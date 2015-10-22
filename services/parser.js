@@ -379,7 +379,7 @@ var parseLib = require('parse5'),
                         } else {
 
                             self.chan().send({log: {level:config.log.levels.ERROR,
-                                message: "KEYWORD '" + decodeURIComponent(keyword) + "' ERROR: more than 3 attempts failed to get data",
+                                message: "KEYWORD '" + decodeURIComponent(keyword) + "' ERROR: more than "+maxAttempts+" attempts failed to get data",
                                 data: {
                                     keyword: decodeURIComponent(keyword)
                                 }}});

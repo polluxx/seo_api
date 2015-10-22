@@ -621,26 +621,40 @@ neo4j = {
         });
     },
     publishConcurrentKeywords: function(target) {
-        var self = this, concurrent, promises = [];
+        var self = this, concurrent, limiter = new RateLimiter(10, 'minute');
         this.findKeywordsLinks({target: target})
             .then(function(concurrents) {
                 console.log(concurrents);
 
-                for(concurrent of concurrents.data) {
-                    promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent.src), newCheck: true}));
-                }
 
-                Promise.all(promises)
-                    .then(function(response) {
-                        //console.log(response);
-                        //resolve(response);
-                        console.log("CONCURRENTS LINKS ACKNOWLEDGED");
-                    })
-                    .catch(function(err) {
-                        console.error(err)
+                limiter.removeTokens(10, function(err, remainingRequests) {
 
-                    });
+                    if (err) {
+                        console.log(err);
+                        console.log("RATE LIMIT");
+                        return;
+                    }
+                    var concurrentsLinks = concurrents.data.splice(0,10);
 
+
+                    console.log(concurrentsLinks);
+                    return;
+                    var promises = [];
+                    for(concurrent of concurrentsLinks) {
+                        promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent.src), newCheck: true}));
+                    }
+
+                    Promise.all(promises)
+                        .then(function (response) {
+                            //console.log(response);
+                            //resolve(response);
+                            console.log("CONCURRENTS LINKS ACKNOWLEDGED");
+                        })
+                        .catch(function (err) {
+                            console.error(err)
+
+                        });
+                });
             })
             .catch(function(err) {
                 console.error(err);
