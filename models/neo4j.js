@@ -4,6 +4,7 @@ var http = require("http"),
 r = require("request"),
 transliteration = require('transliteration.cyr'),
 //crypto = require("crypto"),
+io = require('socket.io-client'),
 config = require('../config.js'),
 ASQ = require('asynquence'),
 neo4j = {
@@ -659,7 +660,7 @@ neo4j = {
     // to DB
     publishKeywords: function(keywords){
         console.log(" -- PUBLISH LINKS FROM PRO -- ");
-        var keyword, query = "", domain = keywords[0].url, label = "", unique = [], translit = "";
+        var keyword, query = "", domain = keywords[0].url, label = "", unique = [], translit = "", self = this;
 
         query += 'MERGE (domain:Link {src:"'+domain+'"}) ON MATCH SET domain.updated = timestamp()\r\n';
 
@@ -682,7 +683,12 @@ neo4j = {
         this.cypher(query, null, function(err, response) {
             console.log(err);
             if(!err) {
-
+                self.chan().send({log: {level:config.log.levels.INFO,
+                    message: "TARGET '" + domain + "' done",
+                    data: {
+                        target: domain,
+                        update: true
+                    }}});
             }
             console.log(response);
         });
@@ -819,6 +825,9 @@ neo4j = {
                 resolve(null);
             });
         });
+    },
+    chan: function() {
+        return io(config.services.socketio.host);
     }
 };
 

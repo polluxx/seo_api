@@ -109,15 +109,6 @@ var http = require('http'),
                         var result = JSON.parse(raw);
                           //console.log(result);
 
-                        if(result.queries_left !== undefined) {
-                            self.chan().send({log: {level:config.log.levels.INFO,
-                                message: "TARGET '" + target + "' done",
-                                data: {
-                                    target: target,
-                                    queriesLeft: result.queries_left
-                                }}});
-                        }
-
 
                         if(result.status_code !== 200) done({"error": "Code: "+ result.status_code + "; Body: " + result.status_msg, "data": null});
 
