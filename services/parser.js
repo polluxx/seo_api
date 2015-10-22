@@ -1014,7 +1014,7 @@ var parseLib = require('parse5'),
 
             this.sendProgress(link, true);
 
-            if(checkBlocks.robots instanceof Object && !checkBlocks.robots.length) {
+            if(!checkBlocks.robots.length) {
                 checkBlocks.robots = "";
             }
 
