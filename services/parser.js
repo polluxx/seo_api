@@ -900,7 +900,7 @@ var parseLib = require('parse5'),
                 {
                     method: 'PUT',
                     uri:'http://'+seoElm.host+":"+seoElm.port+seoElm.send,
-                    multipart: {
+                    json: {
                         data: [
                             {
                                 'content-type': 'application/json',
