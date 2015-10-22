@@ -633,8 +633,10 @@ neo4j = {
                     if (err) {
                         console.log(err);
                         console.log("RATE LIMIT");
-                        return;
+                        //return;
                     }
+                    console.log("REMAIN - "+remainingRequests);
+
                     var concurrentsLinks = concurrents.data.splice(0,10);
 
 
