@@ -1014,8 +1014,8 @@ var parseLib = require('parse5'),
 
             this.sendProgress(link, true);
 
-            if(!checkBlocks.robots.length) {
-                checkBlocks.robots = "";
+            if(!checkBlocks.ru.robots.length) {
+                checkBlocks.ru.robots = "";
             }
 
             doc.statistic = checkBlocks;
