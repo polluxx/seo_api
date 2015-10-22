@@ -698,7 +698,7 @@ neo4j = {
 
         // ADD Keyword
         var query = 'MERGE (keyword:Keyword {src:"'+decodeURI(keyword)+'"}) ON CREATE SET keyword.top = "'+links[0].src+'" ON MATCH SET keyword.top = "'+links[0].src+'", keyword.updated = timestamp()\r\n',
-        link, label;
+        link, label, self = this;
 
         for(link of links) {
             label = link.src.match(/\w+/g).join("").replace(/\d+/g, "");
@@ -711,6 +711,13 @@ neo4j = {
         }
         this.cypher(query, null, function(err, response) {
             console.log(err);
+            if(!err) {
+                self.chan().send({log: {level:config.log.levels.DATA,
+                    message: "KEYWORD '" + decodeURIComponent(keyword) + "' done",
+                    data: {
+                        keyword: decodeURIComponent(keyword)
+                    }}});
+            }
             console.log(response);
         });
 
@@ -718,7 +725,7 @@ neo4j = {
     insertSynonims: function(keyword, synonims) {
         if(!keyword || !synonims) return Error("keyword or synonims are empty");
 
-        var synonim, label, unique = [], query = 'MERGE (keyword:Keyword {src:"'+decodeURI(keyword)+'"}) ON MATCH SET keyword.updated = timestamp()\r\n';
+        var synonim, self = this, label, unique = [], query = 'MERGE (keyword:Keyword {src:"'+decodeURI(keyword)+'"}) ON MATCH SET keyword.updated = timestamp()\r\n';
         for(synonim of synonims) {
             label = transliteration.transliterate(synonim).replace(/\s/g, "").match(/\w+/g).join("");
 
@@ -731,6 +738,13 @@ neo4j = {
         }
         this.cypher(query, null, function(err, response) {
             console.log(err);
+            if(!err) {
+                self.chan().send({log: {level:config.log.levels.INFO,
+                    message: "по запросу '" + decodeURIComponent(keyword) + "' найдены синонимы",
+                    data: {
+                        keyword: decodeURIComponent(keyword)
+                    }}});
+            }
             console.log(response);
             return true;
         });

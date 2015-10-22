@@ -273,12 +273,6 @@ var parseLib = require('parse5'),
                             neo4j.publishLinks(response.data, keyword);
                             console.info("DATA MUST BE RESOLVED");
 
-                            self.chan().send({log: {level:config.log.levels.DATA,
-                                message: "KEYWORD '" + decodeURIComponent(keyword) + "' done",
-                                data: {
-                                    keyword: decodeURIComponent(keyword)
-                                }}});
-
                             resolve(response);
                         })
                         .on('error', function(err) {
@@ -611,11 +605,6 @@ var parseLib = require('parse5'),
             //console.log(keyword);
             //console.log(highlight);
 
-            this.chan().send({log: {level:config.log.levels.INFO,
-                message: "по запросу '" + decodeURIComponent(keyword) + "' найдены синонимы",
-                data: {
-                    keyword: decodeURIComponent(keyword)
-                }}});
             resolve(neo4j.insertSynonims(keyword, highlight));
         },
         parseHighlight: function(obj, highlight, tmpHightlight) {
