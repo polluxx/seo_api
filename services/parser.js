@@ -895,6 +895,7 @@ var parseLib = require('parse5'),
 
         saveSeo: function(doc, cb) {
             doc['_id'] = doc.link;
+            doc['updatedby'] = 2; // CROM !!! ARRRGHHHHHH
             var seoElm = config.parser.seoDB;
             Request(
                 {
