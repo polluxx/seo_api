@@ -222,7 +222,7 @@ neo4j = {
                     console.info('START CHECKING BY KEYWORDS');
                     console.info(args.keywords);
 
-                    console.log();
+
                     if(typeof args.keywords === 'string') {
                         args.keywords = [args.keywords];
                     }
@@ -678,10 +678,12 @@ neo4j = {
             query += 'MERGE (domain)-[:CONTAINS]->('+label+')\r\n';
 
         }
-        console.log(query);
-        return;
+
         this.cypher(query, null, function(err, response) {
             console.log(err);
+            if(!err) {
+
+            }
             console.log(response);
         });
     },
