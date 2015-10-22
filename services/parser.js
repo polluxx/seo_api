@@ -384,7 +384,7 @@ var parseLib = require('parse5'),
                                     keyword: decodeURIComponent(keyword)
                                 }}});
 
-                            console.log("PROXY RACE MORE THAN 3 ATTEMPTS! END");
+                            console.log("PROXY RACE MORE THAN "+maxAttempts+" ATTEMPTS! END");
                             decline("STOP GETTING PROXY");
                             // LOG
                         }
