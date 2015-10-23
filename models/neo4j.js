@@ -630,7 +630,7 @@ neo4j = {
 
 
                     //var concurrentsLinks = concurrents.data.splice(0,1);
-                    var concurrentsLinks = concurrents;
+                    var concurrentsLinks = concurrents.data;
 
                     var promises = [];
                     for(concurrent of concurrentsLinks) {
