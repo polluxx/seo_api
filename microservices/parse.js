@@ -15,7 +15,7 @@ var Prodvigator = require('../services/prodvigator'),
     seneca = require('seneca')({
         transport:{
             web:{
-                timeout:20000
+                timeout:100000
             },
             tcp:{
                 timeout:120000
@@ -92,4 +92,4 @@ var Prodvigator = require('../services/prodvigator'),
         //})
         //.act({path: 'rabbit', operation: 'sub'})
         //.add( { generate:'id', type:'nid'}, id.nid )
-        .listen({timeout:22000, port: 9002, type: 'tcp'});
+        .listen({timeout:42000, port: 9002, type: 'tcp'});
