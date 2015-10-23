@@ -628,7 +628,7 @@ neo4j = {
                 console.log(concurrents);
                 var length = concurrents.data.length;
 
-                limiter.removeTokens(length, function(err, remainingRequests) {
+                limiter.removeTokens(10, function(err, remainingRequests) {
 
                     if (err) {
                         console.log(err);
