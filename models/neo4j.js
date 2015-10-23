@@ -628,7 +628,7 @@ neo4j = {
                 console.log(concurrents);
                 var length = concurrents.data.length;
 
-                limiter.removeTokens(10, function(err, remainingRequests) {
+                limiter.removeTokens(1, function(err, remainingRequests) {
 
                     if (err) {
                         console.log(err);
@@ -637,7 +637,7 @@ neo4j = {
                     }
                     console.log("REMAIN - "+remainingRequests);
 
-                    var concurrentsLinks = concurrents.data.splice(0,10);
+                    var concurrentsLinks = concurrents.data.splice(0,1);
 
 
                     console.log(concurrentsLinks);
