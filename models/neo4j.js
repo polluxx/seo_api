@@ -628,18 +628,9 @@ neo4j = {
             .then(function(concurrents) {
                 //limiter.removeTokens(1, function(err, remainingRequests) {
 
-                    if (err) {
-                        console.log(err);
-                        console.log("RATE LIMIT");
-                        //return;
-                    }
-                    console.log("REMAIN - "+remainingRequests);
 
                     //var concurrentsLinks = concurrents.data.splice(0,1);
                     var concurrentsLinks = concurrents;
-
-
-
 
                     var promises = [];
                     for(concurrent of concurrentsLinks) {
