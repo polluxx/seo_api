@@ -67,9 +67,15 @@ var cors = require('cors'),
         callback(null, corsOptions); // callback expects two parameters: error and options
     };
 
+    function haltOnTimedout(req, res, next){
+        console.log(req);
+        if (!req.timedout) next();
+    }
+
     app.use(cors(corsOptionsDelegate));
     app.use( require("body-parser").json());
     app.use( seneca.export('web') );
     app.use(timeout('60s'));
+    app.use(haltOnTimedout);
 
     app.listen(3000);
