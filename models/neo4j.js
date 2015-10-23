@@ -641,22 +641,22 @@ neo4j = {
 
 
                     console.log(concurrentsLinks);
-                    return;
-                    var promises = [];
-                    for(concurrent of concurrentsLinks) {
-                        promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent.src), newCheck: true}));
-                    }
-
-                    Promise.all(promises)
-                        .then(function (response) {
-                            //console.log(response);
-                            //resolve(response);
-                            console.log("CONCURRENTS LINKS ACKNOWLEDGED");
-                        })
-                        .catch(function (err) {
-                            console.error(err)
-
-                        });
+                    //
+                    //var promises = [];
+                    //for(concurrent of concurrentsLinks) {
+                    //    promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent.src), newCheck: true}));
+                    //}
+                    //
+                    //Promise.all(promises)
+                    //    .then(function (response) {
+                    //        //console.log(response);
+                    //        //resolve(response);
+                    //        console.log("CONCURRENTS LINKS ACKNOWLEDGED");
+                    //    })
+                    //    .catch(function (err) {
+                    //        console.error(err)
+                    //
+                    //    });
                 });
             })
             .catch(function(err) {
