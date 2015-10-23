@@ -527,7 +527,7 @@ var parseLib = require('parse5'),
 
                             if(result.yandexsearch.response[0].error !== undefined) {
                                 self.chan().send({log: {level:config.log.levels.ERROR,
-                                    message: "по запросу '" + decodeURIComponent(keyword) + "' ошибка - "+result.yandexsearch.response[0].error,
+                                    message: "по запросу '" + decodeURIComponent(keyword) + "' ошибка - "+ JSON.stringify(result.yandexsearch.response[0].error),
                                     data: {
                                         keyword: decodeURIComponent(keyword)
                                     }}});

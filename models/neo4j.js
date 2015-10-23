@@ -585,7 +585,7 @@ neo4j = {
                         items = result.data[0].items;
 
                         console.log("END new check");
-                        resolve(self.publishKeywords(items[1]));
+                        resolve(self.publishKeywords(items[1]), link);
                         //console.log(items);
                         //resolve("Data received");
                     });
@@ -665,7 +665,7 @@ neo4j = {
     },
 
     // to DB
-    publishKeywords: function(keywords){
+    publishKeywords: function(keywords, linkParent){
         console.log(" -- PUBLISH LINKS FROM PRO -- ");
         var keyword, query = "", domain = keywords[0].url, label = "", unique = [], translit = "", self = this;
 
@@ -694,7 +694,8 @@ neo4j = {
                     message: "TARGET '" + domain + "' done",
                     data: {
                         target: domain,
-                        update: true
+                        update: true,
+                        link: linkParent
                     }}});
             }
             console.log(response);
@@ -722,7 +723,8 @@ neo4j = {
                 self.chan().send({log: {level:config.log.levels.DATA,
                     message: "KEYWORD '" + decodeURIComponent(keyword) + "' done",
                     data: {
-                        keyword: decodeURIComponent(keyword)
+                        keyword: decodeURIComponent(keyword),
+                        link: link
                     }}});
             }
             console.log(response);
