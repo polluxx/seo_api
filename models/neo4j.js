@@ -622,13 +622,11 @@ neo4j = {
         });
     },
     publishConcurrentKeywords: function(target) {
-        var self = this, concurrent, limiter = new RateLimiter(10, 'minute');
+        var self = this, concurrent;
+            //limiter = new RateLimiter(10, 'minute');
         this.findKeywordsLinks({target: target})
             .then(function(concurrents) {
-                console.log(concurrents);
-                var length = concurrents.data.length;
-
-                limiter.removeTokens(1, function(err, remainingRequests) {
+                //limiter.removeTokens(1, function(err, remainingRequests) {
 
                     if (err) {
                         console.log(err);
@@ -637,27 +635,28 @@ neo4j = {
                     }
                     console.log("REMAIN - "+remainingRequests);
 
-                    var concurrentsLinks = concurrents.data.splice(0,1);
+                    //var concurrentsLinks = concurrents.data.splice(0,1);
+                    var concurrentsLinks = concurrents;
 
 
-                    console.log(concurrentsLinks);
-                    //
-                    //var promises = [];
-                    //for(concurrent of concurrentsLinks) {
-                    //    promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent.src), newCheck: true}));
-                    //}
-                    //
-                    //Promise.all(promises)
-                    //    .then(function (response) {
-                    //        //console.log(response);
-                    //        //resolve(response);
-                    //        console.log("CONCURRENTS LINKS ACKNOWLEDGED");
-                    //    })
-                    //    .catch(function (err) {
-                    //        console.error(err)
-                    //
-                    //    });
-                });
+
+
+                    var promises = [];
+                    for(concurrent of concurrentsLinks) {
+                        promises.push(self.findDomainKeywords({target: encodeURIComponent(concurrent.src), newCheck: true}));
+                    }
+
+                    Promise.all(promises)
+                        .then(function (response) {
+                            //console.log(response);
+                            //resolve(response);
+                            console.log("CONCURRENTS LINKS ACKNOWLEDGED");
+                        })
+                        .catch(function (err) {
+                            console.error(err)
+
+                        });
+                //});
             })
             .catch(function(err) {
                 console.error(err);
