@@ -784,7 +784,7 @@ neo4j = {
     concurrentKeywords: function(link, additional, isCount) {
         //var query = "MATCH (n:Link)-[:CONTAINS]->()-[:TOP10]-(concurrent)-[:CONTAINS]-(keyword) WHERE n.src = '"+link+"' RETURN " + this.buildPaginator(link, additional, isCount);
         //var query = "MATCH (n:Link {src: '"+link+"'})-[*1..3]-(keyword:Keyword) RETURN " + this.buildPaginator(link, additional, isCount);
-        var query = "MATCH (n:Link {src: '"+link+"'})--[:CONTAINS]->(a:Keyword)-[]-(l:Link)-[]-(keyword:Keyword) RETURN " + this.buildPaginator(link, additional, isCount);
+        var query = "MATCH (n:Link {src: '"+link+"'})-[:CONTAINS]->(a:Keyword)-[]-(l:Link)-[]-(keyword:Keyword) RETURN " + this.buildPaginator(link, additional, isCount);
 
         //console.log(query);
         return this.request(query);
