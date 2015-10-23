@@ -21,6 +21,7 @@
     "asynquence": "^0.6.0-b",
     "body-parser": "^1.13.3",
     "co": "^4.6.0",
+    "connect-timeout": "^1.7.0",
     "cors": "^2.7.1",
     "couchbase": "^2.1.0",
     "couchnode": "^4.1.10",

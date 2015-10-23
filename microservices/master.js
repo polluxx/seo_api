@@ -2,6 +2,7 @@
 var cors = require('cors'),
     rabbit = require('../services/rabbit'),
     io = require('socket.io')(8002),
+    timeout = require('connect-timeout'),
     config = require('../config'),
     seneca = require('seneca')({
         transport:{
@@ -69,6 +70,6 @@ var cors = require('cors'),
     app.use(cors(corsOptionsDelegate));
     app.use( require("body-parser").json());
     app.use( seneca.export('web') );
-
+    app.use(timeout('60s'));
 
     app.listen(3000);
