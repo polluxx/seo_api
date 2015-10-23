@@ -526,6 +526,11 @@ var parseLib = require('parse5'),
                             if(err) reject(err);
 
                             if(result.yandexsearch.response[0].error !== undefined) {
+                                self.chan().send({log: {level:config.log.levels.ERROR,
+                                    message: "по запросу '" + decodeURIComponent(keyword) + "' ошибка - "+result.yandexsearch.response[0].error,
+                                    data: {
+                                        keyword: decodeURIComponent(keyword)
+                                    }}});
                                 reject(result.yandexsearch.response[0].error);
                                 return;
                             }
@@ -545,6 +550,7 @@ var parseLib = require('parse5'),
 
                             });
 
+                            console.log(keyword);
                             if(onlyHighLigth) {
                                 self.sendHighlight(keyword, highlight, resolve);
                                 return;
